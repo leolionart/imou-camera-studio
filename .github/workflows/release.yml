@@ -1,0 +1,90 @@
+name: Build & Release macOS App (DMG)
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "Release tag (e.g. v1.1.0)"
+        required: false
+        default: "v1.1.0"
+
+permissions:
+  contents: write
+
+jobs:
+  build-macos:
+    name: Build macOS Universal App & DMG
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build Imou Camera Studio (.app, .dmg, .zip)
+        run: |
+          make dmg zip
+          shasum -a 256 dist/Imou-Camera-Studio-macOS.dmg dist/Imou-Camera-Studio-macOS.zip > dist/SHA256SUMS.txt
+          cat dist/SHA256SUMS.txt
+
+      - name: Upload DMG & ZIP Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Imou-Camera-Studio-macOS
+          path: |
+            dist/Imou-Camera-Studio-macOS.dmg
+            dist/Imou-Camera-Studio-macOS.zip
+            dist/SHA256SUMS.txt
+
+      - name: Determine Release Tag
+        id: release_meta
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+          elif [[ -n "${{ github.event.inputs.tag_name }}" ]]; then
+            TAG="${{ github.event.inputs.tag_name }}"
+          else
+            TAG="v1.1.0"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Create or Update GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.release_meta.outputs.tag }}"
+          NOTES="### Imou Camera Studio (${TAG}) — macOS Installer
+
+          #### 📦 Cài đặt nhanh trên macOS
+          1. Tải file **\`Imou-Camera-Studio-macOS.dmg\`** bên dưới.
+          2. Mở file \`.dmg\` và kéo **\`Imou Camera Studio.app\`** vào thư mục **\`Applications\`**.
+          3. Nếu macOS Gatekeeper hỏi lần đầu mở ứng dụng chưa qua Apple Notarization, chạy lệnh sau trong Terminal để mở khoá:
+             \`\`\`bash
+             xattr -cr \"/Applications/Imou Camera Studio.app\"
+             \`\`\`
+
+          #### ✨ Tính năng chính
+          - Native macOS Cocoa + WebKit App (Universal Binary \`arm64\` + \`x86_64\`) tích hợp sẵn Dahua NetSDK Bridge (\`TCP 37777\`).
+          - Tự động ẩn triệt để Watermark Logo đồ hoạ \`IMOU\` và chữ OSD trên mọi thế hệ firmware Imou (\`2.680\`, \`2.800\`, \`3.010\`, \`3.011\`).
+          - Đổi tên thiết bị, đọc \`General.MachineName\` từ chip camera, lưu mật khẩu an toàn trong **macOS Keychain**.
+          - Điều chỉnh Độ sáng, Tương phản, Bão hoà, Độ nét, WDR, Ngày/Đêm, Lật hình, Chuẩn nén H.264/H.265 và điều khiển quay quét PTZ."
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" \
+              dist/Imou-Camera-Studio-macOS.dmg \
+              dist/Imou-Camera-Studio-macOS.zip \
+              dist/SHA256SUMS.txt \
+              --clobber
+            gh release edit "$TAG" --title "Imou Camera Studio $TAG (macOS)" --notes "$NOTES"
+          else
+            gh release create "$TAG" \
+              dist/Imou-Camera-Studio-macOS.dmg \
+              dist/Imou-Camera-Studio-macOS.zip \
+              dist/SHA256SUMS.txt \
+              --title "Imou Camera Studio $TAG (macOS)" \
+              --notes "$NOTES"
+          fi
