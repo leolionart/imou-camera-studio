@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 """
 Imou / Dahua IP Camera Manager CLI & Core Library (SmartPSS Replacement for macOS).
-Provides full device discovery, macOS Keychain credential management, OSD (Logo/Timestamp)
-customization, Image/Brightness/Color/WDR/IR tuning, Stream Encoding, RTSP Snapshot, and PTZ.
+Provides full LAN discovery (ARP + TCP 37777 DVRIP probe), macOS Keychain credential management,
+persistent camera registry (~/.config/imou-camera-studio/cameras.json),
+OSD (Logo/Timestamp) customization, Image/Brightness/Color/WDR/IR tuning, Stream Encoding,
+RTSP Snapshot, and PTZ control.
 """
 import argparse
 import concurrent.futures
 import json
 import os
+import re
 import socket
 import subprocess
 import sys
@@ -36,6 +39,27 @@ PTZ_COMMANDS = {
     "down_right": 35,
 }
 
+LOGIN_ERROR_MESSAGES = {
+    1: "Sai mật khẩu (Safety Code). Vui lòng kiểm tra lại mã Safety Code 8 ký tự dưới đáy camera hoặc mật khẩu trong ứng dụng Imou Life.",
+    2: "Tài khoản (Username) không tồn tại trên camera.",
+    3: "Quá thời gian chờ đăng nhập (Timeout) tới cổng 37777 của camera.",
+    4: "Tài khoản đang được đăng nhập trùng lặp.",
+    5: "Camera đang tạm khoá đăng nhập (Account Locked) do nhập sai mật khẩu nhiều lần trước đó. Vui lòng chờ 3–5 phút hoặc khởi động lại nguồn camera rồi thử lại.",
+    6: "Tài khoản bị đưa vào danh sách đen (Blacklist) của thiết bị.",
+    7: "Thiết bị đang quá tải / bận xử lý.",
+    8: "Lỗi kết nối phụ trợ SDK.",
+    9: "Không thể kết nối mạng tới cổng TCP 37777 của camera (Kiểm tra IP hoặc kết nối Wi-Fi/LAN).",
+    10: " vượt quá số kết nối tối đa của camera.",
+}
+
+
+def format_login_error(code: int) -> str:
+    detail = LOGIN_ERROR_MESSAGES.get(
+        code,
+        "Sai mật khẩu hoặc thiết bị từ chối kết nối. Hãy kiểm tra lại mật khẩu / Safety Code.",
+    )
+    return f"Đăng nhập thất bại (Mã lỗi SDK {code}): {detail}"
+
 
 def keychain_get(service: str) -> Optional[str]:
     try:
@@ -54,6 +78,13 @@ def keychain_get(service: str) -> Optional[str]:
 
 def keychain_set(service: str, account: str, secret: str) -> bool:
     try:
+        # Delete any existing item with the same service name first to avoid duplicate account conflicts
+        subprocess.run(
+            ["/usr/bin/security", "delete-generic-password", "-s", service],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
         res = subprocess.run(
             [
                 "/usr/bin/security",
@@ -62,7 +93,7 @@ def keychain_set(service: str, account: str, secret: str) -> bool:
                 "-s",
                 service,
                 "-a",
-                account,
+                account or "admin",
                 "-w",
                 secret,
             ],
@@ -75,117 +106,203 @@ def keychain_set(service: str, account: str, secret: str) -> bool:
         return False
 
 
+def keychain_delete(service: str) -> bool:
+    try:
+        res = subprocess.run(
+            ["/usr/bin/security", "delete-generic-password", "-s", service],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        return res.returncode == 0
+    except Exception:
+        return False
+
+
 def get_camera_password(ip: str) -> Optional[str]:
-    pwd = keychain_get(f"{KEYCHAIN_PREFIX}{ip}")
-    if pwd:
-        return pwd
-    for fallback in ("default-1", "default-2"):
-        pwd = keychain_get(f"{KEYCHAIN_PREFIX}{fallback}")
-        if pwd:
-            return pwd
-    return None
+    """Return ONLY the password explicitly stored for this camera IP in Keychain."""
+    return keychain_get(f"{KEYCHAIN_PREFIX}{ip}")
 
 
 def get_candidate_passwords(ip: str) -> List[str]:
-    seen = []
-    for key in (f"{KEYCHAIN_PREFIX}{ip}", f"{KEYCHAIN_PREFIX}default-1", f"{KEYCHAIN_PREFIX}default-2"):
-        p = keychain_get(key)
-        if p and p not in seen:
-            seen.append(p)
-    return seen
+    """Never try other cameras' passwords on an IP to avoid locking out the camera's admin account."""
+    pwd = get_camera_password(ip)
+    return [pwd] if pwd else []
 
 
-def import_smartpss_credentials() -> Dict[str, Any]:
-    if not BRIDGE_BIN.exists():
-        return {"ok": False, "error": f"Bridge binary missing at {BRIDGE_BIN}"}
-    res = subprocess.run([str(BRIDGE_BIN), "decrypt-smartpss"], capture_output=True, text=True, timeout=10)
-    if res.returncode != 0:
-        return {"ok": False, "error": res.stderr.strip() or res.stdout.strip()}
+def load_arp_mac_map() -> Dict[str, str]:
+    """Read macOS ARP cache (`arp -an`) to map IP -> MAC address."""
+    mac_map: Dict[str, str] = {}
     try:
-        data = json.loads(res.stdout.strip())
-    except Exception as e:
-        return {"ok": False, "error": f"Invalid JSON: {e}"}
-
-    if not data.get("ok"):
-        return data
-
-    imported = []
-    for idx, dev in enumerate(data.get("devices", []), start=1):
-        ip = dev.get("ip", "")
-        user = dev.get("username") or "admin"
-        pwd = dev.get("password") or ""
-        if not pwd:
-            continue
-        keychain_set(f"{KEYCHAIN_PREFIX}default-{idx}", user, pwd)
-        if ip:
-            keychain_set(f"{KEYCHAIN_PREFIX}{ip}", user, pwd)
-        imported.append({"idUnique": dev.get("idUnique"), "name": dev.get("name"), "ip": ip, "username": user})
-
-    return {"ok": True, "imported": imported}
+        res = subprocess.run(["/usr/sbin/arp", "-an"], capture_output=True, text=True, timeout=4)
+        if res.returncode == 0:
+            for line in res.stdout.splitlines():
+                m = re.search(r"\((\d+\.\d+\.\d+\.\d+)\)\s+at\s+([0-9a-fA-F:]{11,17})", line)
+                if m:
+                    ip = m.group(1)
+                    raw_mac = m.group(2)
+                    if raw_mac and "incomplete" not in raw_mac.lower():
+                        parts = [p.zfill(2).upper() for p in raw_mac.split(":")]
+                        if len(parts) == 6:
+                            mac_map[ip] = ":".join(parts)
+    except Exception:
+        pass
+    return mac_map
 
 
 def load_cameras_registry() -> List[Dict[str, Any]]:
-    target = USER_CAMERAS_FILE if USER_CAMERAS_FILE.exists() else DEFAULT_CAMERAS_FILE
-    if not target.exists():
-        return []
+    """
+    Load user camera registry from ~/.config/imou-camera-studio/cameras.json.
+    If not created yet, bootstrap it from the bundled default assets/cameras.json.
+    """
+    if not USER_CAMERAS_FILE.exists():
+        default_cams: List[Dict[str, Any]] = []
+        if DEFAULT_CAMERAS_FILE.exists():
+            try:
+                data = json.loads(DEFAULT_CAMERAS_FILE.read_text(encoding="utf-8"))
+                default_cams = data.get("cameras", [])
+            except Exception:
+                default_cams = []
+        save_cameras_registry(default_cams)
+        return default_cams
+
     try:
-        data = json.loads(target.read_text(encoding="utf-8"))
-        return data.get("cameras", [])
+        data = json.loads(USER_CAMERAS_FILE.read_text(encoding="utf-8"))
+        user_cams = data.get("cameras", [])
+        deleted_ips = set(data.get("deleted_ips", []))
+        # Merge any newly bundled default cameras that weren't in user_cams or deleted_ips
+        if DEFAULT_CAMERAS_FILE.exists():
+            try:
+                def_data = json.loads(DEFAULT_CAMERAS_FILE.read_text(encoding="utf-8"))
+                existing_ips = {c.get("ip") for c in user_cams if c.get("ip")}
+                changed = False
+                for dc in def_data.get("cameras", []):
+                    dip = dc.get("ip")
+                    if dip and dip not in existing_ips and dip not in deleted_ips:
+                        user_cams.append(dc)
+                        existing_ips.add(dip)
+                        changed = True
+                if changed:
+                    save_cameras_registry(user_cams, list(deleted_ips))
+            except Exception:
+                pass
+        return user_cams
     except Exception:
         return []
 
 
-def save_cameras_registry(cameras: List[Dict[str, Any]]) -> None:
-    USER_CAMERAS_FILE.parent.mkdir(parents=True, exist_ok=True)
-    USER_CAMERAS_FILE.write_text(json.dumps({"cameras": cameras}, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+def _load_deleted_ips() -> List[str]:
+    if USER_CAMERAS_FILE.exists():
+        try:
+            data = json.loads(USER_CAMERAS_FILE.read_text(encoding="utf-8"))
+            return list(data.get("deleted_ips", []))
+        except Exception:
+            pass
+    return []
+
+
+def save_cameras_registry(cameras: List[Dict[str, Any]], deleted_ips: Optional[List[str]] = None) -> None:
+    if deleted_ips is None:
+        deleted_ips = _load_deleted_ips()
+    USER_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    clean_cams = []
+    for c in cameras:
+        item = {
+            "ip": c.get("ip", ""),
+            "name": c.get("name", ""),
+            "model": c.get("model", "Imou/Dahua IPC"),
+            "serial_no": c.get("serial_no", ""),
+            "firmware": c.get("firmware", ""),
+            "mac": c.get("mac", ""),
+            "port": int(c.get("port") or 37777),
+            "rtsp_port": int(c.get("rtsp_port") or 554),
+            "username": c.get("username") or "admin",
+            "channel": int(c.get("channel") or 0),
+            "notes": c.get("notes", ""),
+            "name_source": c.get("name_source", "custom"),
+        }
+        clean_cams.append(item)
+    payload = {"cameras": clean_cams, "deleted_ips": sorted(set(deleted_ips))}
+    USER_CAMERAS_FILE.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
 def upsert_camera_registry(
     ip: str,
     name: Optional[str] = None,
     model: Optional[str] = None,
-    port: int = 37777,
-    rtsp_port: int = 554,
-    username: str = "admin",
+    serial_no: Optional[str] = None,
+    firmware: Optional[str] = None,
+    mac: Optional[str] = None,
+    port: Optional[int] = None,
+    rtsp_port: Optional[int] = None,
+    username: Optional[str] = None,
     notes: Optional[str] = None,
+    name_source: Optional[str] = None,
 ) -> Dict[str, Any]:
+    ip = ip.strip()
     cams = load_cameras_registry()
+    deleted_ips = [d for d in _load_deleted_ips() if d != ip]
     found = None
     for c in cams:
         if c.get("ip") == ip:
             found = c
             break
     if not found:
+        arp_mac = load_arp_mac_map().get(ip, "")
         found = {
             "ip": ip,
             "name": name or f"Imou Camera ({ip})",
             "model": model or "Imou/Dahua IPC",
-            "mac": "",
-            "port": port,
-            "rtsp_port": rtsp_port,
-            "username": username,
+            "serial_no": serial_no or "",
+            "firmware": firmware or "",
+            "mac": mac if mac is not None else arp_mac,
+            "port": int(port or 37777),
+            "rtsp_port": int(rtsp_port or 554),
+            "username": username or "admin",
             "channel": 0,
-            "notes": notes or "",
+            "notes": notes if notes is not None else "",
+            "name_source": name_source or ("user" if name else "auto"),
         }
         cams.append(found)
     else:
-        if name:
-            found["name"] = name
-        if model:
-            found["model"] = model
-        if port:
-            found["port"] = port
-        if rtsp_port:
-            found["rtsp_port"] = rtsp_port
-        if username:
-            found["username"] = username
+        if name is not None and name.strip():
+            found["name"] = name.strip()
+        if model is not None and model.strip():
+            found["model"] = model.strip()
+        if serial_no is not None and serial_no.strip():
+            found["serial_no"] = serial_no.strip()
+        if firmware is not None and firmware.strip():
+            found["firmware"] = firmware.strip()
+        if mac is not None and mac.strip():
+            found["mac"] = mac.strip()
+        if port is not None:
+            found["port"] = int(port)
+        if rtsp_port is not None:
+            found["rtsp_port"] = int(rtsp_port)
+        if username is not None and username.strip():
+            found["username"] = username.strip()
         if notes is not None:
             found["notes"] = notes
-    save_cameras_registry(cams)
+        if name_source is not None:
+            found["name_source"] = name_source
+    save_cameras_registry(cams, deleted_ips)
     return found
 
 
-def probe_dhip_alive(ip: str, port: int = 37777, timeout: float = 0.8) -> bool:
+def delete_camera_registry(ip: str, remove_keychain: bool = False) -> bool:
+    ip = ip.strip()
+    cams = load_cameras_registry()
+    new_cams = [c for c in cams if c.get("ip") != ip]
+    deleted_ips = _load_deleted_ips()
+    if ip not in deleted_ips:
+        deleted_ips.append(ip)
+    save_cameras_registry(new_cams, deleted_ips)
+    if remove_keychain:
+        keychain_delete(f"{KEYCHAIN_PREFIX}{ip}")
+    return len(new_cams) != len(cams)
+
+
+def probe_dhip_alive(ip: str, port: int = 37777, timeout: float = 1.4) -> bool:
     pkt = bytearray(32)
     pkt[0] = 0xA0
     pkt[3] = 0x60
@@ -202,61 +319,111 @@ def probe_dhip_alive(ip: str, port: int = 37777, timeout: float = 0.8) -> bool:
         s.close()
 
 
-def detect_local_subnet_prefix() -> str:
+def detect_local_subnet_prefixes() -> List[str]:
+    prefixes: List[str] = []
+    # 1. Check primary outbound interface
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
         s.connect(("8.8.8.8", 80))
         local_ip = s.getsockname()[0]
         parts = local_ip.split(".")
         if len(parts) == 4:
-            return f"{parts[0]}.{parts[1]}.{parts[2]}."
+            p = f"{parts[0]}.{parts[1]}.{parts[2]}."
+            prefixes.append(p)
     except Exception:
         pass
     finally:
         s.close()
-    return "192.168.1."
+
+    # 2. Check all active IPv4 interfaces via ifconfig
+    try:
+        res = subprocess.run(["/sbin/ifconfig"], capture_output=True, text=True, timeout=3)
+        if res.returncode == 0:
+            for m in re.finditer(r"inet\s+(\d+\.\d+\.\d+)\.\d+\s+netmask", res.stdout):
+                sub = m.group(1) + "."
+                if not sub.startswith("127.") and not sub.startswith("169.254.") and sub not in prefixes:
+                    prefixes.append(sub)
+    except Exception:
+        pass
+
+    if not prefixes:
+        prefixes.append("172.16.0.")
+    return prefixes
 
 
 def discover_lan_cameras(subnet_prefix: Optional[str] = None, scan_all: bool = False) -> List[Dict[str, Any]]:
-    if not subnet_prefix:
-        subnet_prefix = detect_local_subnet_prefix()
-    registry = {c["ip"]: dict(c) for c in load_cameras_registry()}
+    prefixes = [subnet_prefix] if subnet_prefix else detect_local_subnet_prefixes()
+    arp_macs = load_arp_mac_map()
+    cams_list = load_cameras_registry()
+    registry = {c["ip"]: dict(c) for c in cams_list if c.get("ip")}
+
     ips_to_check = list(registry.keys())
     if scan_all:
+        # Prioritise ARP known hosts first, then full /24 on the primary subnet
+        for arp_ip in arp_macs:
+            if any(arp_ip.startswith(pref) for pref in prefixes) and arp_ip not in ips_to_check:
+                ips_to_check.append(arp_ip)
+        primary_prefix = prefixes[0]
         for i in range(1, 255):
-            ip = f"{subnet_prefix}{i}"
-            if ip not in registry:
+            ip = f"{primary_prefix}{i}"
+            if ip not in ips_to_check:
                 ips_to_check.append(ip)
 
     online_map: Dict[str, bool] = {}
-    with concurrent.futures.ThreadPoolExecutor(max_workers=48) as ex:
-        fut_to_ip = {ex.submit(probe_dhip_alive, ip, registry.get(ip, {}).get("port", 37777)): ip for ip in ips_to_check}
+    probe_timeout = 1.5 if scan_all else 1.2
+    with concurrent.futures.ThreadPoolExecutor(max_workers=32) as ex:
+        fut_to_ip = {
+            ex.submit(probe_dhip_alive, ip, int(registry.get(ip, {}).get("port", 37777)), probe_timeout): ip
+            for ip in ips_to_check
+        }
         for fut in concurrent.futures.as_completed(fut_to_ip):
             ip = fut_to_ip[fut]
-            online_map[ip] = bool(fut.result())
+            try:
+                online_map[ip] = bool(fut.result())
+            except Exception:
+                online_map[ip] = False
 
     results = []
+    newly_discovered = False
+
+    # Sort so registered cameras stay in order, followed by newly discovered IPs sorted numerically
     for ip in ips_to_check:
         is_online = online_map.get(ip, False)
         if ip not in registry and not is_online:
             continue
-        item = registry.get(
-            ip,
-            {
+
+        if ip not in registry and is_online:
+            new_cam = {
                 "ip": ip,
                 "name": f"Imou Camera ({ip})",
                 "model": "Imou/Dahua IPC",
-                "mac": "",
+                "serial_no": "",
+                "firmware": "",
+                "mac": arp_macs.get(ip, ""),
                 "port": 37777,
                 "rtsp_port": 554,
                 "username": "admin",
                 "channel": 0,
-                "notes": "Phát hiện tự động trên LAN",
-            },
-        )
+                "notes": "Phát hiện qua quét mạng LAN",
+                "name_source": "auto",
+            }
+            registry[ip] = new_cam
+            cams_list.append(new_cam)
+            newly_discovered = True
+
+        item = dict(registry[ip])
+        if not item.get("mac") and arp_macs.get(ip):
+            item["mac"] = arp_macs[ip]
+            registry[ip]["mac"] = arp_macs[ip]
+            newly_discovered = True
+
         item["online"] = is_online
-        item["has_saved_password"] = keychain_get(f"{KEYCHAIN_PREFIX}{ip}") is not None
+        item["has_saved_password"] = get_camera_password(ip) is not None
         results.append(item)
+
+    if newly_discovered:
+        save_cameras_registry(list(registry.values()))
+
     return results
 
 
@@ -269,45 +436,59 @@ def run_rpc_batch(
 ) -> Tuple[bool, List[Dict[str, Any]], str]:
     candidates = [password] if password else get_candidate_passwords(ip)
     if not candidates:
-        # Auto-import from SmartPSS on first use if Keychain is empty
-        import_smartpss_credentials()
-        candidates = get_candidate_passwords(ip)
-    if not candidates:
-        return False, [], "Chưa có mật khẩu cho camera này. Vui lòng nhập mật khẩu (hoặc Safety Code dưới đáy camera)."
+        return (
+            False,
+            [],
+            "Camera này chưa có mật khẩu trong macOS Keychain. Vui lòng nhập mật khẩu (hoặc mã Safety Code 8 ký tự dưới đáy camera) để kết nối.",
+        )
 
     stdin_payload = "\n".join(json.dumps(r, separators=(",", ":")) for r in requests) + "\n"
-    last_err = "Login failed"
+    last_err = "Đăng nhập thất bại"
 
     for cand in candidates:
         env = os.environ.copy()
         env["IMOU_CAM_PASSWORD"] = cand
-        res = subprocess.run(
-            [str(BRIDGE_BIN), "rpc", ip, str(port), username],
-            input=stdin_payload,
-            capture_output=True,
-            text=True,
-            env=env,
-            timeout=15,
-        )
+        try:
+            res = subprocess.run(
+                [str(BRIDGE_BIN), "rpc", ip, str(port), username],
+                input=stdin_payload,
+                capture_output=True,
+                text=True,
+                env=env,
+                timeout=18,
+            )
+        except subprocess.TimeoutExpired:
+            last_err = "Quá thời gian kết nối tới camera (Timeout 18s)."
+            continue
+
         out_line = res.stdout.strip()
         try:
             parsed = json.loads(out_line)
         except Exception:
-            last_err = out_line or res.stderr.strip() or "SDK Bridge error"
+            last_err = out_line or res.stderr.strip() or "Lỗi giao tiếp SDK Bridge"
             continue
 
         if parsed.get("ok"):
-            # Cache working password for this specific IP in Keychain
             keychain_set(f"{KEYCHAIN_PREFIX}{ip}", username, cand)
             return True, parsed.get("responses", []), ""
         else:
-            code = parsed.get("login_error", -1)
-            last_err = f"Đăng nhập thất bại (Mã lỗi SDK: {code} - Sai mật khẩu hoặc tài khoản bị khoá tạm thời)"
+            code = int(parsed.get("login_error", -1))
+            last_err = format_login_error(code)
 
     return False, [], last_err
 
 
-def inspect_camera(ip: str, port: int = 37777, username: str = "admin", password: Optional[str] = None) -> Dict[str, Any]:
+def inspect_camera(
+    ip: str,
+    port: Optional[int] = None,
+    username: Optional[str] = None,
+    password: Optional[str] = None,
+) -> Dict[str, Any]:
+    reg_map = {c.get("ip"): c for c in load_cameras_registry() if c.get("ip")}
+    reg_cam = reg_map.get(ip, {})
+    use_port = int(port or reg_cam.get("port") or 37777)
+    use_user = str(username or reg_cam.get("username") or "admin")
+
     reqs = [
         {"method": "magicBox.getDeviceType", "params": None},
         {"method": "magicBox.getSerialNo", "params": None},
@@ -319,11 +500,8 @@ def inspect_camera(ip: str, port: int = 37777, username: str = "admin", password
         {"method": "configManager.getConfig", "params": {"channel": 0, "name": "VideoInDayNight", "onlyLocal": True}},
         {"method": "configManager.getConfig", "params": {"channel": 0, "name": "VideoInSharpness", "onlyLocal": True}},
         {"method": "configManager.getConfig", "params": {"channel": 0, "name": "VideoInBacklight", "onlyLocal": True}},
-        {"method": "configManager.getConfig", "params": {"channel": 0, "name": "VideoInExposure", "onlyLocal": True}},
-        {"method": "configManager.getConfig", "params": {"channel": 0, "name": "VideoInWhiteBalance", "onlyLocal": True}},
         {"method": "configManager.getConfig", "params": {"channel": 0, "name": "Encode", "onlyLocal": True}},
         {"method": "configManager.getConfig", "params": {"name": "Locales", "onlyLocal": True}},
-        {"method": "configManager.getConfig", "params": {"name": "NTP", "onlyLocal": True}},
     ]
     keys = [
         "DeviceType",
@@ -336,13 +514,10 @@ def inspect_camera(ip: str, port: int = 37777, username: str = "admin", password
         "VideoInDayNight",
         "VideoInSharpness",
         "VideoInBacklight",
-        "VideoInExposure",
-        "VideoInWhiteBalance",
         "Encode",
         "Locales",
-        "NTP",
     ]
-    ok, responses, err = run_rpc_batch(ip, reqs, port=port, username=username, password=password)
+    ok, responses, err = run_rpc_batch(ip, reqs, port=use_port, username=use_user, password=password)
     if not ok:
         return {"ok": False, "ip": ip, "error": err}
 
@@ -384,11 +559,40 @@ def inspect_camera(ip: str, port: int = 37777, username: str = "admin", password
     has_common_osd = "CommonOsdEnable" in vw
     common_osd_enabled = bool(vw.get("CommonOsdEnable", False))
 
+    device_type = (raw_tables.get("DeviceType") or {}).get("type", "")
+    serial_no = (raw_tables.get("SerialNo") or {}).get("sn", "")
+    firmware = ((raw_tables.get("SoftwareVersion") or {}).get("version") or {}).get("Version", "")
+    build_date = ((raw_tables.get("SoftwareVersion") or {}).get("version") or {}).get("BuildDate", "")
+
+    # Auto-persist hardware metadata & newly authenticated camera in USER_CAMERAS_FILE
+    arp_mac = load_arp_mac_map().get(ip)
+    current_name = reg_cam.get("name", "")
+    auto_name = None
+    if not current_name or current_name.startswith("Imou Camera ("):
+        clean_osd = channel_name.replace("ㅤ", "").strip()
+        if clean_osd and clean_osd.lower() not in ("ipc", "imou", "camera"):
+            auto_name = clean_osd
+        elif device_type:
+            auto_name = f"{device_type} ({ip.split('.')[-1]})"
+
+    updated_cam = upsert_camera_registry(
+        ip=ip,
+        name=auto_name if auto_name else None,
+        model=device_type if device_type else None,
+        serial_no=serial_no if serial_no else None,
+        firmware=firmware if firmware else None,
+        mac=arp_mac if arp_mac else None,
+        port=use_port,
+        username=use_user,
+    )
+    updated_cam["online"] = True
+    updated_cam["has_saved_password"] = True
+
     summary = {
-        "device_type": (raw_tables.get("DeviceType") or {}).get("type", ""),
-        "serial_no": (raw_tables.get("SerialNo") or {}).get("sn", ""),
-        "firmware": ((raw_tables.get("SoftwareVersion") or {}).get("version") or {}).get("Version", ""),
-        "build_date": ((raw_tables.get("SoftwareVersion") or {}).get("version") or {}).get("BuildDate", ""),
+        "device_type": device_type,
+        "serial_no": serial_no,
+        "firmware": firmware,
+        "build_date": build_date,
         "osd": {
             "channel_name": channel_name,
             "logo_enabled": bool(ch_widget.get("EncodeBlend", False)),
@@ -442,7 +646,7 @@ def inspect_camera(ip: str, port: int = 37777, username: str = "admin", password
             "sub_audio": bool(sub_fmt.get("AudioEnable", True)),
         },
     }
-    return {"ok": True, "ip": ip, "summary": summary, "raw": raw_tables}
+    return {"ok": True, "ip": ip, "camera_meta": updated_cam, "summary": summary, "raw": raw_tables}
 
 
 def update_osd(
@@ -475,12 +679,15 @@ def update_osd(
 
     set_reqs = []
     if channel_name is not None:
+        # Many Dahua/Imou firmwares reject empty string "" in ChannelTitle with error 268959743;
+        # use a single space " " when the user clears the channel name.
+        safe_title = channel_name if channel_name != "" else " "
         if isinstance(ch_table, list) and ch_table and isinstance(ch_table[0], dict):
-            ch_table[0]["Name"] = channel_name
+            ch_table[0]["Name"] = safe_title
         elif isinstance(ch_table, dict):
-            ch_table["Name"] = channel_name
+            ch_table["Name"] = safe_title
         else:
-            ch_table = [{"Name": channel_name}]
+            ch_table = {"Name": safe_title}
         set_reqs.append(
             {
                 "method": "configManager.setConfig",
@@ -543,7 +750,12 @@ def update_osd(
     ok2, resps2, err2 = run_rpc_batch(ip, set_reqs, port=port, username=username)
     if not ok2:
         return {"ok": False, "error": err2}
-    return {"ok": True, "results": [r.get("data") for r in resps2]}
+
+    results = [r.get("data") for r in resps2]
+    # Check VideoWidget setConfig (last request in set_reqs)
+    if results and isinstance(results[-1], dict) and not results[-1].get("result", False):
+        return {"ok": False, "error": "Camera từ chối lưu cấu hình VideoWidget.", "results": results}
+    return {"ok": True, "results": results}
 
 
 def update_image(
@@ -615,8 +827,12 @@ def update_image(
         sharp_entries = sharp_table if isinstance(sharp_table, list) else ([sharp_table] if isinstance(sharp_table, dict) else [])
         for entry in sharp_entries:
             if isinstance(entry, dict):
-                entry["Sharpness"] = val
-                entry["Level"] = val
+                if "Sharpness" in entry:
+                    entry["Sharpness"] = val
+                if "Level" in entry:
+                    entry["Level"] = val
+                if "Sharpness" not in entry and "Level" not in entry:
+                    entry["Sharpness"] = val
         set_reqs.append(
             {
                 "method": "configManager.setConfig",
@@ -640,7 +856,7 @@ def update_image(
                 t["Rotate90"] = int(rotate90)
             if day_night_color is not None:
                 t["DayNightColor"] = int(day_night_color)
-            if infrared is not None:
+            if infrared is not None and "InfraRed" in t:
                 t["InfraRed"] = bool(infrared)
             if wdr is not None:
                 t["WideDynamicRange"] = int(wdr)
@@ -727,19 +943,21 @@ def capture_snapshot(
     ip: str,
     output_path: Path,
     subtype: int = 0,
-    rtsp_port: int = 554,
-    username: str = "admin",
+    rtsp_port: Optional[int] = None,
+    username: Optional[str] = None,
     password: Optional[str] = None,
 ) -> Dict[str, Any]:
+    reg_map = {c.get("ip"): c for c in load_cameras_registry() if c.get("ip")}
+    reg_cam = reg_map.get(ip, {})
+    use_rtsp = int(rtsp_port or reg_cam.get("rtsp_port") or 554)
+    use_user = str(username or reg_cam.get("username") or "admin")
+
     pwd = password or get_camera_password(ip)
     if not pwd:
-        import_smartpss_credentials()
-        pwd = get_camera_password(ip)
-    if not pwd:
-        return {"ok": False, "error": "Chưa có mật khẩu camera để lấy luồng RTSP."}
+        return {"ok": False, "error": "Chưa có mật khẩu camera trong Keychain để lấy luồng RTSP."}
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    rtsp_url = f"rtsp://{username}:{pwd}@{ip}:{rtsp_port}/cam/realmonitor?channel=1&subtype={subtype}"
+    rtsp_url = f"rtsp://{use_user}:{pwd}@{ip}:{use_rtsp}/cam/realmonitor?channel=1&subtype={subtype}"
     res = subprocess.run(
         [
             "ffmpeg",
@@ -803,10 +1021,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Imou / Dahua SmartPSS Camera Manager CLI")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
-    sub.add_parser("import-smartpss", help="Đồng bộ mật khẩu camera đã lưu từ SmartPSS.app sang macOS Keychain")
-
     p_disc = sub.add_parser("discover", help="Danh sách và kiểm tra trạng thái online của các camera Imou")
-    p_disc.add_argument("--scan-all", action="store_true", help="Quét toàn bộ dải 192.168.1.1-254 trên cổng 37777")
+    p_disc.add_argument("--scan-all", action="store_true", help="Quét toàn bộ mạng LAN trên cổng 37777")
 
     p_pwd = sub.add_parser("set-password", help="Lưu mật khẩu (hoặc Safety Code) cho camera vào macOS Keychain")
     p_pwd.add_argument("--ip", required=True, help="Địa chỉ IP của camera")
@@ -814,13 +1030,22 @@ def main() -> int:
     p_pwd.add_argument("--password", help="Mật khẩu camera")
     p_pwd.add_argument("--stdin", action="store_true", help="Đọc mật khẩu từ stdin")
 
+    p_ren = sub.add_parser("rename", help="Đổi tên quản lý của camera (và tuỳ chọn đồng bộ lên OSD ChannelTitle)")
+    p_ren.add_argument("--ip", required=True, help="Địa chỉ IP của camera")
+    p_ren.add_argument("--name", required=True, help="Tên mới của camera")
+    p_ren.add_argument("--notes", help="Ghi chú vị trí / mô tả")
+    p_ren.add_argument("--sync-osd", action="store_true", help="Đồng bộ tên này lên OSD ChannelTitle của camera")
+
     p_insp = sub.add_parser("inspect", help="Đọc toàn bộ thông số OSD, Độ sáng, Màu sắc, Luồng Video của camera")
     p_insp.add_argument("--ip", required=True, help="Địa chỉ IP của camera")
 
     p_osd = sub.add_parser("set-osd", help="Tuỳ chỉnh tắt/bật Logo Imou, Tên kênh, Ngày tháng năm (OSD)")
     p_osd.add_argument("--ip", required=True, help="Địa chỉ IP của camera")
     p_osd.add_argument("--logo", choices=["on", "off"], help="Bật/tắt Logo / Tên kênh trên góc video")
+    p_osd.add_argument("--show-logo", choices=["true", "false"], help="Alias bật/tắt Logo")
     p_osd.add_argument("--time", choices=["on", "off"], help="Bật/tắt Ngày tháng năm trên video")
+    p_osd.add_argument("--show-time", choices=["true", "false"], help="Alias bật/tắt Ngày tháng")
+    p_osd.add_argument("--show-title", choices=["true", "false"], help="Alias bật/tắt Tên kênh")
     p_osd.add_argument("--week", choices=["on", "off"], help="Bật/tắt hiển thị Thứ trong tuần")
     p_osd.add_argument("--title", help="Đặt tên kênh hiển thị (hoặc truyền chuỗi rỗng để xoá chữ Imou)")
     p_osd.add_argument("--clear-title", action="store_true", help="Xoá chữ 'Imou' về khoảng trắng")
@@ -834,43 +1059,44 @@ def main() -> int:
     p_img.add_argument("--gamma", type=int, help="Gamma (0-100, mặc định 50)")
     p_img.add_argument("--sharpness", type=int, help="Độ sắc nét (0-100, mặc định 50)")
     p_img.add_argument("--style", choices=["Standard", "Soft", "Vivid"], help="Phong cách màu")
-    p_img.add_argument("--mirror", choices=["on", "off"], help="Đối xứng gương trái-phải (Mirror)")
-    p_img.add_argument("--flip", choices=["on", "off"], help="Lật ngược trên-dưới (Flip)")
+    p_img.add_argument("--mirror", choices=["on", "off", "true", "false"], help="Đối xứng gương trái-phải (Mirror)")
+    p_img.add_argument("--flip", choices=["on", "off", "true", "false"], help="Lật ngược trên-dưới (Flip)")
     p_img.add_argument("--daynight", choices=["auto", "color", "bw"], help="Chế độ Ngày/Đêm (1=Auto, 0=Color, 2=B&W)")
-    p_img.add_argument("--ir", choices=["on", "off"], help="Đèn hồng ngoại (InfraRed)")
-    p_img.add_argument("--wdr", type=int, help="Mức chống ngược sáng WDR (0=Tắt, 1-100)")
+    p_img.add_argument("--ir", choices=["on", "off", "true", "false"], help="Đèn hồng ngoại (InfraRed)")
+    p_img.add_argument("--wdr", help="Mức chống ngược sáng WDR (0=Tắt, 1-100 hoặc on/off)")
+    p_img.add_argument("--wdr-level", type=int, help="Mức WDR (0-100)")
 
     p_enc = sub.add_parser("set-encode", help="Chỉnh luồng Video/Audio (H.264/H.265, FPS, Bitrate, Micro)")
     p_enc.add_argument("--ip", required=True, help="Địa chỉ IP của camera")
+    p_enc.add_argument("--stream", choices=["main", "sub"], default="main")
+    p_enc.add_argument("--compression", choices=["H.264", "H.265"])
     p_enc.add_argument("--main-codec", choices=["H.264", "H.265"])
+    p_enc.add_argument("--fps", type=int)
     p_enc.add_argument("--main-fps", type=int)
+    p_enc.add_argument("--bitrate", type=int)
     p_enc.add_argument("--main-bitrate", type=int)
-    p_enc.add_argument("--main-audio", choices=["on", "off"])
-    p_enc.add_argument("--sub-audio", choices=["on", "off"])
+    p_enc.add_argument("--audio", choices=["on", "off", "true", "false"])
+    p_enc.add_argument("--main-audio", choices=["on", "off", "true", "false"])
+    p_enc.add_argument("--sub-audio", choices=["on", "off", "true", "false"])
 
     p_snap = sub.add_parser("snapshot", help="Chụp ảnh trực tiếp từ camera qua RTSP")
     p_snap.add_argument("--ip", required=True, help="Địa chỉ IP của camera")
-    p_snap.add_argument("--output", default="/tmp/imou_snapshot.jpg", help="Đường dẫn file ảnh JPEG")
+    p_snap.add_argument("--output", "--out", dest="output", default="/tmp/imou_snapshot.jpg", help="Đường dẫn file ảnh JPEG")
     p_snap.add_argument("--sub", action="store_true", help="Lấy từ luồng phụ (nhanh hơn)")
 
     p_ptz = sub.add_parser("ptz", help="Điều khiển quay quét PTZ")
     p_ptz.add_argument("--ip", required=True, help="Địa chỉ IP của camera")
     p_ptz.add_argument("--action", required=True, choices=list(PTZ_COMMANDS.keys()))
     p_ptz.add_argument("--speed", type=int, default=4)
-    p_ptz.add_argument("--duration-ms", type=int, default=400)
+    p_ptz.add_argument("--duration-ms", "--duration", dest="duration_ms", type=int, default=400)
 
     p_reb = sub.add_parser("reboot", help="Khởi động lại camera")
     p_reb.add_argument("--ip", required=True, help="Địa chỉ IP của camera")
 
     args = parser.parse_args()
 
-    if args.cmd == "import-smartpss":
-        print(json.dumps(import_smartpss_credentials(), indent=2, ensure_ascii=False))
-        return 0
-
-    if args.cmd == "discover":
-        import_smartpss_credentials()
-        cams = discover_lan_cameras(scan_all=args.scan_all)
+    if args.cmd in ("discover", "status"):
+        cams = discover_lan_cameras(scan_all=getattr(args, "scan_all", False))
         print(json.dumps({"ok": True, "cameras": cams}, indent=2, ensure_ascii=False))
         return 0
 
@@ -884,6 +1110,14 @@ def main() -> int:
         print(json.dumps(info, indent=2, ensure_ascii=False))
         return 0 if info.get("ok") else 1
 
+    if args.cmd == "rename":
+        cam = upsert_camera_registry(ip=args.ip, name=args.name, notes=args.notes, name_source="user")
+        osd_res = None
+        if args.sync_osd:
+            osd_res = update_osd(args.ip, channel_name=args.name)
+        print(json.dumps({"ok": True, "camera": cam, "osd_sync": osd_res}, indent=2, ensure_ascii=False))
+        return 0
+
     if args.cmd == "inspect":
         info = inspect_camera(args.ip)
         print(json.dumps(info, indent=2, ensure_ascii=False))
@@ -891,10 +1125,24 @@ def main() -> int:
 
     if args.cmd == "set-osd":
         title = " " if args.clear_title else args.title
+        logo_val = None
+        if args.logo:
+            logo_val = args.logo == "on"
+        elif args.show_logo:
+            logo_val = args.show_logo == "true"
+        elif args.show_title:
+            logo_val = args.show_title == "true"
+
+        time_val = None
+        if args.time:
+            time_val = args.time == "on"
+        elif args.show_time:
+            time_val = args.show_time == "true"
+
         res = update_osd(
             args.ip,
-            logo_enabled=(args.logo == "on") if args.logo else None,
-            time_enabled=(args.time == "on") if args.time else None,
+            logo_enabled=logo_val,
+            time_enabled=time_val,
             show_week=(args.week == "on") if args.week else None,
             channel_name=title,
             font_size=args.font_size,
@@ -904,6 +1152,14 @@ def main() -> int:
 
     if args.cmd == "set-image":
         dn_map = {"color": 0, "auto": 1, "bw": 2}
+        wdr_val = args.wdr_level
+        if wdr_val is None and args.wdr is not None:
+            if str(args.wdr).lower() == "on":
+                wdr_val = 50
+            elif str(args.wdr).lower() == "off":
+                wdr_val = 0
+            else:
+                wdr_val = int(args.wdr)
         res = update_image(
             args.ip,
             brightness=args.brightness,
@@ -912,23 +1168,30 @@ def main() -> int:
             gamma=args.gamma,
             sharpness=args.sharpness,
             style=args.style,
-            mirror=(args.mirror == "on") if args.mirror else None,
-            flip=(args.flip == "on") if args.flip else None,
+            mirror=(args.mirror in ("on", "true")) if args.mirror else None,
+            flip=(args.flip in ("on", "true")) if args.flip else None,
             day_night_color=dn_map[args.daynight] if args.daynight else None,
-            infrared=(args.ir == "on") if args.ir else None,
-            wdr=args.wdr,
+            infrared=(args.ir in ("on", "true")) if args.ir else None,
+            wdr=wdr_val,
         )
         print(json.dumps(res, indent=2, ensure_ascii=False))
         return 0 if res.get("ok") else 1
 
     if args.cmd == "set-encode":
+        codec = args.main_codec or args.compression
+        fps = args.main_fps or args.fps
+        bitrate = args.main_bitrate or args.bitrate
+        audio = args.main_audio or args.audio
         res = update_encode(
             args.ip,
-            main_codec=args.main_codec,
-            main_fps=args.main_fps,
-            main_bitrate=args.main_bitrate,
-            main_audio=(args.main_audio == "on") if args.main_audio else None,
-            sub_audio=(args.sub_audio == "on") if args.sub_audio else None,
+            main_codec=codec if args.stream == "main" else None,
+            main_fps=fps if args.stream == "main" else None,
+            main_bitrate=bitrate if args.stream == "main" else None,
+            main_audio=(audio in ("on", "true")) if (audio and args.stream == "main") else None,
+            sub_codec=codec if args.stream == "sub" else None,
+            sub_fps=fps if args.stream == "sub" else None,
+            sub_bitrate=bitrate if args.stream == "sub" else None,
+            sub_audio=(args.sub_audio in ("on", "true")) if args.sub_audio else None,
         )
         print(json.dumps(res, indent=2, ensure_ascii=False))
         return 0 if res.get("ok") else 1

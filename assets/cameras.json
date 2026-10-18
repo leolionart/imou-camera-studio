@@ -1,15 +1,26 @@
 {
   "cameras": [
     {
-      "ip": "192.168.1.108",
-      "name": "Example Imou Camera",
+      "ip": "192.168.1.26",
+      "name": "Camera Server Room",
       "model": "IPC-A26HS",
       "mac": "",
       "port": 37777,
       "rtsp_port": 554,
       "username": "admin",
       "channel": 0,
-      "notes": "Example camera entry (use LAN scan or + button in UI to add your cameras)"
+      "notes": "Server Room"
+    },
+    {
+      "ip": "192.168.1.80",
+      "name": "Camera Living Room",
+      "model": "IPC-DK2-2H1W",
+      "mac": "",
+      "port": 37777,
+      "rtsp_port": 554,
+      "username": "admin",
+      "channel": 0,
+      "notes": "Living Room"
     }
   ]
 }

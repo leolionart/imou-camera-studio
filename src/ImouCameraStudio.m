@@ -1,15 +1,41 @@
 #import <Cocoa/Cocoa.h>
 #import <WebKit/WebKit.h>
 #include <stdlib.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
 
 @interface AppDelegate : NSObject <NSApplicationDelegate, WKUIDelegate, NSWindowDelegate>
 @property (strong) NSWindow *window;
 @property (strong) WKWebView *webView;
+@property (strong) NSTask *serverTask;
 @end
 
 @implementation AppDelegate
 
+- (void)triggerLocalNetworkPermissionProbe {
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        // Trigger macOS Local Network privacy permission prompt directly from the main app bundle
+        int sock = socket(AF_INET, SOCK_DGRAM, 0);
+        if (sock >= 0) {
+            int broadcast = 1;
+            setsockopt(sock, SOL_SOCKET, SO_BROADCAST, &broadcast, sizeof(broadcast));
+            struct sockaddr_in addr;
+            memset(&addr, 0, sizeof(addr));
+            addr.sin_family = AF_INET;
+            addr.sin_port = htons(37777);
+            inet_pton(AF_INET, "255.255.255.255", &addr.sin_addr);
+            const char pkt[4] = {0x20, 0x00, 0x00, 0x00};
+            sendto(sock, pkt, sizeof(pkt), 0, (struct sockaddr *)&addr, sizeof(addr));
+            close(sock);
+        }
+    });
+}
+
 - (void)applicationDidFinishLaunching:(NSNotification *)notification {
+    [self triggerLocalNetworkPermissionProbe];
+
     NSString *bundlePath = [[NSBundle mainBundle] resourcePath];
     NSString *startScript = [bundlePath stringByAppendingPathComponent:@"scripts/start_studio.sh"];
     if ([[NSFileManager defaultManager] fileExistsAtPath:startScript]) {
@@ -17,7 +43,7 @@
         system([cmd UTF8String]);
     }
 
-    NSRect frame = NSMakeRect(0, 0, 1340, 860);
+    NSRect frame = NSMakeRect(0, 0, 1380, 880);
     NSUInteger style = NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskMiniaturizable | NSWindowStyleMaskResizable;
     self.window = [[NSWindow alloc] initWithContentRect:frame styleMask:style backing:NSBackingStoreBuffered defer:NO];
     [self.window setTitle:@"Imou Camera Studio — SmartPSS for macOS"];
@@ -46,7 +72,7 @@
     NSAlert *alert = [[NSAlert alloc] init];
     [alert setMessageText:@"Imou Camera Studio"];
     [alert setInformativeText:message];
-    [alert addButtonWithTitle:@"OK"];
+    [alert addButtonWithTitle:@"Đóng"];
     [alert runModal];
     completionHandler();
 }
@@ -59,25 +85,6 @@
     [alert addButtonWithTitle:@"Huỷ"];
     NSModalResponse resp = [alert runModal];
     completionHandler(resp == NSAlertFirstButtonReturn);
-}
-
-- (void)webView:(WKWebView *)webView runJavaScriptTextInputPanelWithPrompt:(NSString *)prompt defaultText:(NSString *)defaultText initiatedByFrame:(WKFrameInfo *)frame completionHandler:(void (^)(NSString * _Nullable))completionHandler {
-    NSAlert *alert = [[NSAlert alloc] init];
-    [alert setMessageText:@"Imou Camera Studio"];
-    [alert setInformativeText:prompt];
-    [alert addButtonWithTitle:@"Lưu"];
-    [alert addButtonWithTitle:@"Huỷ"];
-    NSTextField *input = [[NSTextField alloc] initWithFrame:NSMakeRect(0, 0, 300, 24)];
-    [input setStringValue:(defaultText ? defaultText : @"")];
-    [alert setAccessoryView:input];
-    [alert.window setInitialFirstResponder:input];
-    NSModalResponse resp = [alert runModal];
-    if (resp == NSAlertFirstButtonReturn) {
-        [input validateEditing];
-        completionHandler([input stringValue]);
-    } else {
-        completionHandler(nil);
-    }
 }
 
 @end
@@ -98,6 +105,9 @@ int main(int argc, const char * argv[]) {
         NSMenuItem *editMenuItem = [[NSMenuItem alloc] init];
         [menubar addItem:editMenuItem];
         NSMenu *editMenu = [[NSMenu alloc] initWithTitle:@"Edit"];
+        [editMenu addItemWithTitle:@"Undo" action:@selector(undo:) keyEquivalent:@"z"];
+        [editMenu addItemWithTitle:@"Redo" action:@selector(redo:) keyEquivalent:@"Z"];
+        [editMenu addItem:[NSMenuItem separatorItem]];
         [editMenu addItemWithTitle:@"Cut" action:@selector(cut:) keyEquivalent:@"x"];
         [editMenu addItemWithTitle:@"Copy" action:@selector(copy:) keyEquivalent:@"c"];
         [editMenu addItemWithTitle:@"Paste" action:@selector(paste:) keyEquivalent:@"v"];

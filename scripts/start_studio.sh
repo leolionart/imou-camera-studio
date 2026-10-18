@@ -41,6 +41,7 @@ stop_server() {
   if [[ -n "$pids" ]]; then
     kill $pids 2>/dev/null || true
   fi
+  sleep 0.2
   echo "stopped"
 }
 
@@ -51,6 +52,10 @@ case "$ACTION" in
     ;;
   stop)
     stop_server
+    ;;
+  restart)
+    stop_server
+    start_server
     ;;
   status)
     if is_running; then
@@ -69,7 +74,7 @@ case "$ACTION" in
     fi
     ;;
   *)
-    echo "Usage: $(basename "$0") [start|stop|status|open]" >&2
+    echo "Usage: $(basename "$0") [start|stop|restart|status|open]" >&2
     exit 2
     ;;
 esac

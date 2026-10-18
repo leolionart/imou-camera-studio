@@ -3,6 +3,9 @@
 #include <string.h>
 #include <dlfcn.h>
 #include <unistd.h>
+#include <mach-o/dyld.h>
+#include <libgen.h>
+#include <sys/stat.h>
 #include <string>
 #include <vector>
 #include <iostream>
@@ -13,7 +16,6 @@ typedef long (*CLIENT_Login_t)(const char*, unsigned short, const char*, const c
 typedef int (*CLIENT_Logout_t)(long);
 typedef int (*CLIENT_TransmitInfoForWeb_t)(long, const char*, unsigned int, char*, unsigned int, void*, int);
 typedef int (*CLIENT_DHPTZControlEx2_t)(long, int, unsigned int, long, long, long, int, void*);
-typedef std::string (*AesDecryptFn)(const char*, long long, const char*);
 
 static std::string json_escape(const std::string& s) {
     std::string out;
@@ -28,9 +30,41 @@ static std::string json_escape(const std::string& s) {
     return out;
 }
 
+static bool file_exists(const std::string& p) {
+    struct stat st;
+    return stat(p.c_str(), &st) == 0;
+}
+
+static std::string find_frameworks_dir() {
+    char exePath[4096] = {0};
+    uint32_t size = sizeof(exePath);
+    if (_NSGetExecutablePath(exePath, &size) == 0) {
+        char realExe[4096] = {0};
+        if (realpath(exePath, realExe)) {
+            std::string dir1 = dirname(realExe);           // .../scripts/bin
+            std::string dir2 = dirname((char*)dir1.c_str()); // .../scripts
+            std::string dir3 = dirname((char*)dir2.c_str()); // .../Resources
+            std::string dir4 = dirname((char*)dir3.c_str()); // .../Contents
+
+            std::vector<std::string> candidates = {
+                dir4 + "/Frameworks",
+                dir2 + "/Frameworks",
+                dir3 + "/Frameworks",
+                "/Applications/Imou Camera Studio.app/Contents/Frameworks",
+            };
+            for (const auto& c : candidates) {
+                if (file_exists(c + "/libdhnetsdk.so")) {
+                    return c;
+                }
+            }
+        }
+    }
+    return "/Applications/Imou Camera Studio.app/Contents/Frameworks";
+}
+
 int main(int argc, char** argv) {
     if (argc < 2) {
-        fprintf(stderr, "Usage: imou_sdk_bridge <decrypt-smartpss | rpc | ptz> [args...]\n");
+        fprintf(stderr, "Usage: imou_sdk_bridge <rpc | ptz> [args...]\n");
         return 2;
     }
 
@@ -38,62 +72,9 @@ int main(int argc, char** argv) {
     int saved_stdout = dup(STDOUT_FILENO);
     dup2(STDERR_FILENO, STDOUT_FILENO);
 
-    chdir("/Applications/SmartPSS.app/Contents/MacOS");
     std::string mode = argv[1];
-
     if (mode == "decrypt-smartpss") {
-        void* hLogic = dlopen("/Applications/SmartPSS.app/Contents/Frameworks/libSPSSLogic.dylib", RTLD_LAZY);
-        if (!hLogic) {
-            dprintf(saved_stdout, "{\"ok\":false,\"error\":\"dlopen libSPSSLogic failed\"}\n");
-            return 1;
-        }
-        AesDecryptFn fnDec = (AesDecryptFn)dlsym(hLogic, "_ZN9SPSSLogic10AesDecryptEPKcxS1_");
-        FILE* fp = fopen("/Applications/SmartPSS.app/Contents/MacOS/Organization/OrganizationDevice.xml", "r");
-        if (!fp || !fnDec) {
-            dprintf(saved_stdout, "{\"ok\":false,\"error\":\"Cannot read OrganizationDevice.xml\"}\n");
-            return 1;
-        }
-        char buf[16384] = {0};
-        fread(buf, 1, sizeof(buf) - 1, fp);
-        fclose(fp);
-        std::string xml(buf);
-
-        dprintf(saved_stdout, "{\"ok\":true,\"devices\":[");
-        size_t pos = 0;
-        bool first = true;
-        while ((pos = xml.find("<Device ", pos)) != std::string::npos) {
-            size_t end = xml.find("/>", pos);
-            if (end == std::string::npos) break;
-            std::string tag = xml.substr(pos, end - pos);
-            pos = end + 2;
-
-            auto get_attr = [&](const std::string& k) -> std::string {
-                std::string pat = k + "=\"";
-                size_t p = tag.find(pat);
-                if (p == std::string::npos) return "";
-                p += pat.size();
-                size_t e = tag.find("\"", p);
-                return (e == std::string::npos) ? "" : tag.substr(p, e - p);
-            };
-
-            long long idUnique = atoll(get_attr("idUnique").c_str());
-            std::string name = get_attr("name");
-            std::string domain = get_attr("domain");
-            int port = atoi(get_attr("port").c_str());
-            std::string encUser = get_attr("username");
-            std::string encPass = get_attr("password");
-
-            std::string decUser = fnDec("UsernameUFNTU0FGRVNFQ1JFVFBDVkFMVUVPTkxZS0VZPQ==", idUnique, encUser.c_str());
-            std::string decPass = fnDec("PasswordUFNTU0FGRVNFQ1JFVFBDVkFMVUVPTkxZS0VZPQ==", idUnique, encPass.c_str());
-
-            if (!first) dprintf(saved_stdout, ",");
-            first = false;
-            dprintf(saved_stdout,
-                    "{\"idUnique\":%lld,\"name\":\"%s\",\"ip\":\"%s\",\"port\":%d,\"username\":\"%s\",\"password\":\"%s\"}",
-                    idUnique, json_escape(name).c_str(), json_escape(domain).c_str(), port,
-                    json_escape(decUser).c_str(), json_escape(decPass).c_str());
-        }
-        dprintf(saved_stdout, "]}\n");
+        dprintf(saved_stdout, "{\"ok\":true,\"devices\":[]}\n");
         return 0;
     }
 
@@ -108,9 +89,14 @@ int main(int argc, char** argv) {
     const char* pass = getenv("IMOU_CAM_PASSWORD");
     if (!pass) pass = "";
 
-    void* hNet = dlopen("/Applications/SmartPSS.app/Contents/Frameworks/libdhnetsdk.so", RTLD_LAZY);
+    std::string fwDir = find_frameworks_dir();
+    chdir(fwDir.c_str());
+    std::string sdkPath = fwDir + "/libdhnetsdk.so";
+
+    void* hNet = dlopen(sdkPath.c_str(), RTLD_LAZY);
     if (!hNet) {
-        dprintf(saved_stdout, "{\"ok\":false,\"error\":\"dlopen libdhnetsdk.so failed\"}\n");
+        dprintf(saved_stdout, "{\"ok\":false,\"error\":\"dlopen libdhnetsdk.so failed at %s\"}\n",
+                json_escape(sdkPath).c_str());
         return 1;
     }
 
@@ -167,7 +153,6 @@ int main(int argc, char** argv) {
                                 outBuf.data(), (unsigned int)(outBuf.size() - 1), NULL, 5000);
             if (i > 0) dprintf(saved_stdout, ",");
             std::string respStr(outBuf.data());
-            // Trim trailing whitespace/nulls
             while (!respStr.empty() && (respStr.back() == '\n' || respStr.back() == '\r' || respStr.back() == ' ' || respStr.back() == '\0')) {
                 respStr.pop_back();
             }

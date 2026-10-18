@@ -7,11 +7,11 @@
   <style>
     :root {
       --bg: #0b0f19;
-      --panel: #131a2a;
-      --panel-hover: #1a2438;
-      --border: #23304a;
-      --text: #e6edf7;
-      --muted: #8b9bb4;
+      --panel: #121826;
+      --panel-hover: #192236;
+      --border: #232f46;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
       --accent: #3b82f6;
       --accent-hover: #2563eb;
       --success: #10b981;
@@ -21,16 +21,32 @@
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", sans-serif;
       background: var(--bg);
       color: var(--text);
       display: flex;
       height: 100vh;
       overflow: hidden;
+      -webkit-font-smoothing: antialiased;
     }
+
+    /* Lucide Vector Icons */
+    svg.lucide {
+      width: 16px;
+      height: 16px;
+      stroke: currentColor;
+      stroke-width: 1.85;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      fill: none;
+      flex-shrink: 0;
+    }
+    svg.lucide-sm { width: 14px; height: 14px; }
+    svg.lucide-lg { width: 20px; height: 20px; }
+
     /* Sidebar */
     .sidebar {
-      width: 320px;
+      width: 318px;
       background: var(--panel);
       border-right: 1px solid var(--border);
       display: flex;
@@ -38,27 +54,35 @@
       flex-shrink: 0;
     }
     .brand {
-      padding: 18px 20px;
+      padding: 18px 18px 14px;
       border-bottom: 1px solid var(--border);
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      gap: 12px;
     }
-    .brand h1 {
-      font-size: 16px;
-      font-weight: 700;
-      letter-spacing: -0.2px;
+    .brand-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, rgba(59,130,246,0.25), rgba(37,99,235,0.1));
+      border: 1px solid rgba(59,130,246,0.4);
+      color: #60a5fa;
       display: flex;
       align-items: center;
-      gap: 8px;
+      justify-content: center;
+    }
+    .brand h1 {
+      font-size: 15.5px;
+      font-weight: 700;
+      letter-spacing: -0.2px;
     }
     .brand-sub {
-      font-size: 11px;
+      font-size: 11.5px;
       color: var(--muted);
       margin-top: 2px;
     }
     .sidebar-actions {
-      padding: 12px 16px;
+      padding: 12px 14px;
       display: flex;
       gap: 8px;
       border-bottom: 1px solid var(--border);
@@ -66,54 +90,90 @@
     .cam-list {
       flex: 1;
       overflow-y: auto;
-      padding: 12px;
+      padding: 10px;
       display: flex;
       flex-direction: column;
       gap: 8px;
     }
     .cam-item {
-      padding: 12px 14px;
+      padding: 12px 13px;
       border-radius: 10px;
-      border: 1px solid var(--border);
-      background: rgba(255, 255, 255, 0.02);
+      background: rgba(255,255,255,0.02);
+      border: 1px solid transparent;
       cursor: pointer;
       transition: all 0.15s ease;
+      position: relative;
     }
     .cam-item:hover {
       background: var(--panel-hover);
-      border-color: #33466b;
+      border-color: var(--border);
     }
     .cam-item.active {
-      background: rgba(59, 130, 246, 0.14);
+      background: rgba(59, 130, 246, 0.13);
       border-color: var(--accent);
     }
     .cam-item-top {
       display: flex;
-      align-items: center;
       justify-content: space-between;
-      margin-bottom: 4px;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 5px;
+    }
+    .cam-name-wrap {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      min-width: 0;
     }
     .cam-name {
       font-weight: 600;
-      font-size: 14px;
+      font-size: 13.5px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .cam-edit-mini {
+      opacity: 0;
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 3px;
+      border-radius: 5px;
+      display: inline-flex;
+      align-items: center;
+      transition: all 0.15s;
+    }
+    .cam-item:hover .cam-edit-mini,
+    .cam-item.active .cam-edit-mini {
+      opacity: 0.85;
+    }
+    .cam-edit-mini:hover {
+      opacity: 1 !important;
+      color: #fff;
+      background: rgba(255,255,255,0.1);
     }
     .badge {
-      font-size: 10px;
-      font-weight: 600;
+      font-size: 10.5px;
       padding: 2px 7px;
-      border-radius: 99px;
-      text-transform: uppercase;
+      border-radius: 999px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      flex-shrink: 0;
     }
-    .badge.online { background: rgba(16, 185, 129, 0.16); color: #34d399; }
-    .badge.offline { background: rgba(239, 68, 68, 0.16); color: #f87171; }
-    .badge.key { background: rgba(59, 130, 246, 0.16); color: #60a5fa; }
-    .badge.nokey { background: rgba(245, 158, 11, 0.16); color: #fbbf24; }
+    .badge.online { background: rgba(16, 185, 129, 0.15); color: #34d399; }
+    .badge.offline { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+    .badge.key { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
+    .badge.nokey { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
     .cam-meta {
-      font-size: 12px;
+      font-size: 11.5px;
       color: var(--muted);
       display: flex;
       justify-content: space-between;
       align-items: center;
+      gap: 6px;
     }
 
     /* Main Content */
@@ -121,21 +181,19 @@
       flex: 1;
       display: flex;
       flex-direction: column;
-      overflow-y: auto;
+      overflow: hidden;
     }
     .topbar {
-      padding: 16px 24px;
+      padding: 14px 24px;
       background: var(--panel);
       border-bottom: 1px solid var(--border);
       display: flex;
       justify-content: space-between;
       align-items: center;
-      position: sticky;
-      top: 0;
-      z-index: 10;
+      gap: 16px;
     }
     .cam-header-title {
-      font-size: 18px;
+      font-size: 17px;
       font-weight: 700;
       display: flex;
       align-items: center;
@@ -147,60 +205,21 @@
       margin-top: 3px;
     }
     .workspace {
+      flex: 1;
+      overflow-y: auto;
       padding: 20px 24px 40px;
-      max-width: 1360px;
-      width: 100%;
-      margin: 0 auto;
       display: flex;
       flex-direction: column;
-      gap: 20px;
+      gap: 18px;
     }
 
-    /* Buttons & Inputs */
-    .btn {
-      background: #1e293b;
-      color: var(--text);
-      border: 1px solid var(--border);
-      padding: 8px 13px;
-      border-radius: 8px;
-      font-size: 12.5px;
-      font-weight: 600;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      transition: all 0.15s;
-    }
-    .btn:hover { background: #28354d; }
-    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-    .btn-primary:hover { background: var(--accent-hover); }
-    .btn-success { background: rgba(16, 185, 129, 0.18); border-color: rgba(16, 185, 129, 0.4); color: #34d399; }
-    .btn-success:hover { background: rgba(16, 185, 129, 0.28); }
-    .btn-warning { background: rgba(245, 158, 11, 0.16); border-color: rgba(245, 158, 11, 0.4); color: #fbbf24; }
-    .btn-warning:hover { background: rgba(245, 158, 11, 0.26); }
-    .btn-danger { background: rgba(239, 68, 68, 0.16); border-color: rgba(239, 68, 68, 0.4); color: #f87171; }
-    .btn-danger:hover { background: rgba(239, 68, 68, 0.26); }
-
-    input[type="text"], input[type="password"], input[type="number"], select {
-      background: #0d1322;
-      border: 1px solid var(--border);
-      color: var(--text);
-      padding: 8px 12px;
-      border-radius: 8px;
-      font-size: 13px;
-      outline: none;
-    }
-    input:focus, select:focus { border-color: var(--accent); }
-
-    /* Hero Grid: Snapshot + Quick Actions / PTZ */
+    /* Top Grid: Live Snapshot + Quick Actions */
     .hero-grid {
       display: grid;
-      grid-template-columns: 1.35fr 1fr;
-      gap: 20px;
+      grid-template-columns: 1.25fr 1fr;
+      gap: 18px;
     }
-    @media (max-width: 1024px) {
+    @media (max-width: 1100px) {
       .hero-grid { grid-template-columns: 1fr; }
     }
     .card {
@@ -211,20 +230,29 @@
     }
     .card-title {
       font-size: 14px;
-      font-weight: 700;
+      font-weight: 600;
       margin-bottom: 14px;
       display: flex;
-      align-items: center;
       justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+    .card-title-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .card-title-left svg.lucide {
+      color: #60a5fa;
     }
     .snapshot-box {
+      position: relative;
       width: 100%;
       aspect-ratio: 16 / 9;
-      background: #060911;
-      border-radius: 8px;
+      background: #05080f;
+      border-radius: 10px;
       border: 1px solid var(--border);
       overflow: hidden;
-      position: relative;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -239,13 +267,101 @@
       color: var(--muted);
       font-size: 13px;
       text-align: center;
-      padding: 20px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
     }
+
+    /* Buttons & Inputs */
+    .btn {
+      padding: 8px 13px;
+      border-radius: 8px;
+      font-size: 12.5px;
+      font-weight: 600;
+      border: 1px solid var(--border);
+      background: #1b253b;
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.15s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+    .btn:hover:not(:disabled) { background: #25324f; }
+    .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+    .btn-primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    .btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+    .btn-success {
+      background: rgba(16, 185, 129, 0.15);
+      border-color: rgba(16, 185, 129, 0.4);
+      color: #34d399;
+    }
+    .btn-success:hover:not(:disabled) { background: rgba(16, 185, 129, 0.25); }
+    .btn-warning {
+      background: rgba(245, 158, 11, 0.15);
+      border-color: rgba(245, 158, 11, 0.4);
+      color: #fbbf24;
+    }
+    .btn-warning:hover:not(:disabled) { background: rgba(245, 158, 11, 0.25); }
+    .btn-danger {
+      background: rgba(239, 68, 68, 0.14);
+      border-color: rgba(239, 68, 68, 0.4);
+      color: #f87171;
+    }
+    .btn-danger:hover:not(:disabled) { background: rgba(239, 68, 68, 0.25); }
+    .btn-icon-only {
+      padding: 8px 10px;
+    }
+
+    input[type="text"], input[type="password"], input[type="number"], select, textarea {
+      background: #0d1320;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 11px;
+      border-radius: 8px;
+      font-size: 13px;
+      outline: none;
+      font-family: inherit;
+    }
+    input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+
+    .pass-field-group {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+    }
+    .pass-field-group input {
+      padding-right: 34px;
+      width: 100%;
+    }
+    .pass-toggle-btn {
+      position: absolute;
+      right: 6px;
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 4px;
+      display: inline-flex;
+      align-items: center;
+      border-radius: 4px;
+    }
+    .pass-toggle-btn:hover { color: var(--text); }
+
+    /* Quick Preset Grid */
     .quick-presets {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      margin-top: 12px;
+      gap: 9px;
+      margin-top: 8px;
     }
 
     /* PTZ Pad */
@@ -262,13 +378,13 @@
       border: 1px solid var(--border);
       color: var(--text);
       border-radius: 8px;
-      font-size: 15px;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
+      transition: all 0.12s;
     }
-    .ptz-btn:hover { background: var(--accent); color: #fff; }
+    .ptz-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
 
     /* Tabs */
     .tabs {
@@ -276,9 +392,10 @@
       gap: 8px;
       border-bottom: 1px solid var(--border);
       padding-bottom: 12px;
+      flex-wrap: wrap;
     }
     .tab-btn {
-      padding: 9px 16px;
+      padding: 9px 15px;
       border-radius: 8px;
       font-size: 13px;
       font-weight: 600;
@@ -286,6 +403,10 @@
       color: var(--muted);
       border: 1px solid transparent;
       cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.15s;
     }
     .tab-btn:hover { color: var(--text); background: rgba(255,255,255,0.03); }
     .tab-btn.active {
@@ -297,7 +418,7 @@
     /* Form Controls */
     .form-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
       gap: 18px;
     }
     .field-row {
@@ -377,11 +498,11 @@
       font-size: 13px;
       font-weight: 600;
       box-shadow: 0 10px 25px rgba(0,0,0,0.45);
-      z-index: 999;
+      z-index: 1100;
       display: none;
     }
     .auth-banner {
-      background: rgba(245, 158, 11, 0.1);
+      background: rgba(245, 158, 11, 0.09);
       border: 1px solid rgba(245, 158, 11, 0.4);
       border-radius: var(--radius);
       padding: 16px 18px;
@@ -401,21 +522,110 @@
       overflow-x: auto;
       max-height: 460px;
     }
+
+    /* Modal Dialog */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(5, 8, 15, 0.72);
+      backdrop-filter: blur(4px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 20px;
+    }
+    .modal-backdrop.open {
+      display: flex;
+    }
+    .modal-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      width: 100%;
+      max-width: 520px;
+      box-shadow: 0 24px 48px rgba(0, 0, 0, 0.55);
+      overflow: hidden;
+    }
+    .modal-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .modal-title {
+      font-size: 15px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .modal-body {
+      padding: 18px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .modal-field {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .modal-field label {
+      font-size: 12.5px;
+      font-weight: 600;
+      color: #cbd5e1;
+    }
+    .modal-field .hint {
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .modal-row-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .modal-footer {
+      padding: 14px 20px;
+      background: rgba(0,0,0,0.2);
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .info-pill {
+      background: rgba(59, 130, 246, 0.08);
+      border: 1px solid rgba(59, 130, 246, 0.25);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 11.5px;
+      color: #93c5fd;
+      line-height: 1.5;
+    }
   </style>
 </head>
 <body>
   <!-- Sidebar -->
   <aside class="sidebar">
     <div class="brand">
+      <div class="brand-icon" id="brandIcon"></div>
       <div>
-        <h1>📹 Imou Camera Studio</h1>
+        <h1>Imou Camera Studio</h1>
         <div class="brand-sub">SmartPSS Replacement for macOS</div>
       </div>
     </div>
     <div class="sidebar-actions">
-      <button class="btn" style="flex:1" onclick="loadCameras(false)">🔄 Làm mới</button>
-      <button class="btn" style="flex:1" onclick="loadCameras(true)">📡 Quét LAN</button>
-      <button class="btn btn-primary" onclick="promptAddCamera()">＋</button>
+      <button class="btn" style="flex:1" id="btnRefreshList" onclick="loadCameras(false)">
+        <span data-icon="refresh-cw"></span> Làm mới
+      </button>
+      <button class="btn" style="flex:1" id="btnScanLan" onclick="loadCameras(true)">
+        <span data-icon="radar"></span> Quét LAN
+      </button>
+      <button class="btn btn-primary btn-icon-only" title="Thêm Camera mới" onclick="openCameraModal('add')">
+        <span data-icon="plus"></span>
+      </button>
     </div>
     <div class="cam-list" id="camList"></div>
   </aside>
@@ -424,27 +634,46 @@
   <main class="main">
     <header class="topbar">
       <div>
-        <div class="cam-header-title" id="headerTitle">Chọn một Camera</div>
+        <div class="cam-header-title">
+          <span id="headerTitle">Chọn một Camera</span>
+          <button class="btn" style="padding:4px 9px; font-size:11.5px;" onclick="openCameraModal('edit')" title="Đổi tên thiết bị, ghi chú hoặc cấu hình cổng">
+            <span data-icon="pencil" class="lucide-sm"></span> Đổi tên / Sửa
+          </button>
+        </div>
         <div class="cam-header-sub" id="headerSub">Kết nối trực tiếp qua giao thức Dahua/Imou Port 37777 & RTSP</div>
       </div>
       <div style="display:flex; gap:8px;">
-        <button class="btn" onclick="openPasswordModal()">🔑 Đổi/Nhập Mật khẩu</button>
-        <button class="btn" onclick="reloadCurrentCamera()">↻ Đọc lại cấu hình</button>
+        <button class="btn" onclick="openPasswordModal()">
+          <span data-icon="key-round"></span> Mật khẩu Keychain
+        </button>
+        <button class="btn" id="btnReloadCam" onclick="reloadCurrentCamera()">
+          <span data-icon="refresh-cw"></span> Đọc lại cấu hình
+        </button>
       </div>
     </header>
 
     <div class="workspace" id="workspace">
       <!-- Auth Banner when password missing/failed -->
       <div class="auth-banner" id="authBanner" style="display:none;">
-        <div>
-          <div style="font-weight:700; color:#fbbf24; margin-bottom:4px;">⚠️ Cần nhập mật khẩu (hoặc Safety Code) cho camera này</div>
-          <div style="font-size:12px; color:var(--muted);" id="authErrorText">
-            Mật khẩu mặc định của camera Imou là mã <b>Safety Code (8 ký tự)</b> in ở tem dưới đáy camera, hoặc mật khẩu thiết bị trong ứng dụng Imou Life. Mật khẩu sẽ được lưu an toàn trong <b>macOS Keychain</b>.
+        <div style="display:flex; gap:12px; align-items:flex-start; flex:1; min-width:260px;">
+          <span data-icon="shield-alert" style="color:#fbbf24; margin-top:2px;"></span>
+          <div>
+            <div style="font-weight:700; color:#fbbf24; margin-bottom:4px;">Cần xác thực mật khẩu (hoặc Safety Code) cho camera này</div>
+            <div style="font-size:12px; color:var(--muted); line-height:1.45;" id="authErrorText">
+              Mật khẩu mặc định của camera Imou là mã <b>Safety Code (8 ký tự)</b> in trên tem dưới đáy thiết bị, hoặc mật khẩu thiết bị trong ứng dụng Imou Life.
+            </div>
           </div>
         </div>
         <div style="display:flex; gap:8px; align-items:center;">
-          <input type="password" id="quickPassInput" placeholder="Nhập mật khẩu / Safety Code..." style="width:220px;" />
-          <button class="btn btn-primary" onclick="saveQuickPassword()">Lưu vào Keychain & Kết nối</button>
+          <div class="pass-field-group" style="width:230px;">
+            <input type="password" id="quickPassInput" placeholder="Nhập mật khẩu / Safety Code..." onkeydown="if(event.key==='Enter') saveQuickPassword()" />
+            <button type="button" class="pass-toggle-btn" onclick="togglePassVisibility('quickPassInput', this)" title="Hiện/Ẩn mật khẩu">
+              <span data-icon="eye"></span>
+            </button>
+          </div>
+          <button class="btn btn-primary" id="btnQuickSavePass" onclick="saveQuickPassword()">
+            <span data-icon="check-circle"></span> Lưu vào Keychain & Kết nối
+          </button>
         </div>
       </div>
 
@@ -452,16 +681,26 @@
       <div class="hero-grid">
         <div class="card">
           <div class="card-title">
-            <span>🖼️ Xem trước Trực tiếp (RTSP Snapshot)</span>
+            <div class="card-title-left">
+              <span data-icon="camera"></span>
+              <span>Xem trước Trực tiếp (RTSP Snapshot)</span>
+            </div>
             <div style="display:flex; gap:6px;">
-              <button class="btn" onclick="refreshSnapshot(false)">📸 Chụp HD (Main)</button>
-              <button class="btn" onclick="refreshSnapshot(true)">⚡ Chụp nhanh (Sub)</button>
-              <button class="btn" id="autoSnapBtn" onclick="toggleAutoSnapshot()">▶️ Live 2.5s</button>
+              <button class="btn" onclick="refreshSnapshot(false)">
+                <span data-icon="image"></span> Chụp HD (Main)
+              </button>
+              <button class="btn" onclick="refreshSnapshot(true)">
+                <span data-icon="zap"></span> Chụp nhanh (Sub)
+              </button>
+              <button class="btn" id="autoSnapBtn" onclick="toggleAutoSnapshot()">
+                <span data-icon="play"></span> Live 2.5s
+              </button>
             </div>
           </div>
           <div class="snapshot-box" id="snapshotBox">
             <div class="snapshot-placeholder" id="snapshotPlaceholder">
-              Bấm <b>"📸 Chụp HD"</b> để xem khung hình thực tế từ camera và kiểm tra ngay Logo / Ngày tháng / Độ sáng.
+              <span data-icon="video" class="lucide-lg"></span>
+              <span>Bấm <b>"Chụp HD (Main)"</b> để xem khung hình thực tế từ camera và kiểm tra ngay Logo / Ngày tháng / Độ sáng.</span>
             </div>
             <img id="snapshotImg" style="display:none;" alt="Camera Snapshot" />
           </div>
@@ -469,37 +708,57 @@
 
         <div class="card" style="display:flex; flex-direction:column; justify-content:space-between;">
           <div>
-            <div class="card-title"><span>⚡ Thao tác Nhanh 1-Click (Smart Presets)</span></div>
+            <div class="card-title">
+              <div class="card-title-left">
+                <span data-icon="sparkles"></span>
+                <span>Thao tác Nhanh 1-Click (Smart Presets)</span>
+              </div>
+            </div>
             <div class="quick-presets">
-              <button class="btn btn-warning" onclick="quickPreset('hide_logo')">🚫 Tắt Logo & Chữ Imou</button>
-              <button class="btn btn-warning" onclick="quickPreset('hide_time')">🕒 Tắt Ngày Tháng Năm</button>
-              <button class="btn btn-success" onclick="quickPreset('clean_all')">✨ Tắt Sạch Mọi OSD</button>
-              <button class="btn" onclick="quickPreset('show_time_only')">🕒 Chỉ hiện Ngày Giờ</button>
-              <button class="btn" onclick="quickPreset('reset_color')">☀️ Chuẩn Độ sáng (50)</button>
-              <button class="btn" onclick="quickPreset('boost_bright')">💡 Tăng sáng (+65)</button>
+              <button class="btn btn-warning" onclick="quickPreset('hide_logo')">
+                <span data-icon="eye-off"></span> Tắt Logo & Chữ Imou
+              </button>
+              <button class="btn btn-warning" onclick="quickPreset('hide_time')">
+                <span data-icon="clock"></span> Tắt Ngày Tháng Năm
+              </button>
+              <button class="btn btn-success" onclick="quickPreset('clean_all')">
+                <span data-icon="sparkles"></span> Tắt Sạch Mọi OSD
+              </button>
+              <button class="btn" onclick="quickPreset('show_time_only')">
+                <span data-icon="calendar-clock"></span> Chỉ hiện Ngày Giờ
+              </button>
+              <button class="btn" onclick="quickPreset('reset_color')">
+                <span data-icon="rotate-ccw"></span> Chuẩn Độ sáng (50)
+              </button>
+              <button class="btn" onclick="quickPreset('boost_bright')">
+                <span data-icon="sun"></span> Tăng sáng (+65)
+              </button>
             </div>
           </div>
 
           <div style="margin-top:18px; border-top:1px solid var(--border); padding-top:14px;">
             <div class="card-title" style="margin-bottom:6px;">
-              <span>🕹️ Điều khiển Quay quét (PTZ)</span>
+              <div class="card-title-left">
+                <span data-icon="move"></span>
+                <span>Điều khiển Quay quét (PTZ)</span>
+              </div>
               <span style="font-size:11px; color:var(--muted);">Dành cho dòng có motor quay</span>
             </div>
             <div style="display:flex; align-items:center; justify-content:space-around;">
               <div class="ptz-grid">
-                <button class="ptz-btn" onclick="sendPtz('up_left')">↖</button>
-                <button class="ptz-btn" onclick="sendPtz('up')">▲</button>
-                <button class="ptz-btn" onclick="sendPtz('up_right')">↗</button>
-                <button class="ptz-btn" onclick="sendPtz('left')">◀</button>
-                <button class="ptz-btn" onclick="refreshSnapshot(true)" title="Chụp ảnh">📸</button>
-                <button class="ptz-btn" onclick="sendPtz('right')">▶</button>
-                <button class="ptz-btn" onclick="sendPtz('down_left')">↙</button>
-                <button class="ptz-btn" onclick="sendPtz('down')">▼</button>
-                <button class="ptz-btn" onclick="sendPtz('down_right')">↘</button>
+                <button class="ptz-btn" onclick="sendPtz('up_left')" title="Chéo lên trái"><span data-icon="arrow-up-left"></span></button>
+                <button class="ptz-btn" onclick="sendPtz('up')" title="Lên"><span data-icon="arrow-up"></span></button>
+                <button class="ptz-btn" onclick="sendPtz('up_right')" title="Chéo lên phải"><span data-icon="arrow-up-right"></span></button>
+                <button class="ptz-btn" onclick="sendPtz('left')" title="Trái"><span data-icon="arrow-left"></span></button>
+                <button class="ptz-btn" onclick="refreshSnapshot(true)" title="Chụp ảnh nhanh"><span data-icon="camera"></span></button>
+                <button class="ptz-btn" onclick="sendPtz('right')" title="Phải"><span data-icon="arrow-right"></span></button>
+                <button class="ptz-btn" onclick="sendPtz('down_left')" title="Chéo xuống trái"><span data-icon="arrow-down-left"></span></button>
+                <button class="ptz-btn" onclick="sendPtz('down')" title="Xuống"><span data-icon="arrow-down"></span></button>
+                <button class="ptz-btn" onclick="sendPtz('down_right')" title="Chéo xuống phải"><span data-icon="arrow-down-right"></span></button>
               </div>
               <div style="display:flex; flex-direction:column; gap:8px;">
-                <button class="btn" onclick="sendPtz('zoom_in')">🔍＋ Phóng to</button>
-                <button class="btn" onclick="sendPtz('zoom_out')">🔍－ Thu nhỏ</button>
+                <button class="btn" onclick="sendPtz('zoom_in')"><span data-icon="zoom-in"></span> Phóng to</button>
+                <button class="btn" onclick="sendPtz('zoom_out')"><span data-icon="zoom-out"></span> Thu nhỏ</button>
               </div>
             </div>
           </div>
@@ -508,17 +767,30 @@
 
       <!-- Tabs -->
       <div class="tabs">
-        <button class="tab-btn active" onclick="switchTab('osd', this)">🏷️ OSD: Logo, Tên Kênh & Ngày Giờ</button>
-        <button class="tab-btn" onclick="switchTab('image', this)">🎨 Độ Sáng, Màu Sắc & Hình Ảnh</button>
-        <button class="tab-btn" onclick="switchTab('encode', this)">🎞️ Luồng Video & Micro (Encode)</button>
-        <button class="tab-btn" onclick="switchTab('system', this)">⚙️ Thiết Bị, RTSP & JSON Gốc</button>
+        <button class="tab-btn active" onclick="switchTab('osd', this)">
+          <span data-icon="tag"></span> OSD: Logo, Tên Kênh & Ngày Giờ
+        </button>
+        <button class="tab-btn" onclick="switchTab('image', this)">
+          <span data-icon="sliders-horizontal"></span> Độ Sáng, Màu Sắc & Hình Ảnh
+        </button>
+        <button class="tab-btn" onclick="switchTab('encode', this)">
+          <span data-icon="film"></span> Luồng Video & Micro (Encode)
+        </button>
+        <button class="tab-btn" onclick="switchTab('system', this)">
+          <span data-icon="cpu"></span> Thiết Bị, RTSP & JSON Gốc
+        </button>
       </div>
 
       <!-- TAB 1: OSD -->
       <div id="tab-osd" class="tab-pane">
         <div class="form-grid">
           <div class="card">
-            <div class="card-title"><span>🏷️ Quản lý Logo Imou & Tên Kênh (Channel Title)</span></div>
+            <div class="card-title">
+              <div class="card-title-left">
+                <span data-icon="tag"></span>
+                <span>Quản lý Logo Imou & Tên Kênh (Channel Title)</span>
+              </div>
+            </div>
             <div class="field-row">
               <div>
                 <div class="field-label">Hiển thị Logo / Tên Kênh trên Video</div>
@@ -533,7 +805,7 @@
             <div class="field-row" id="commonOsdRow" style="display:none;">
               <div>
                 <div class="field-label">Hiển thị Watermark Logo hãng (`CommonOsdEnable`)</div>
-                <div class="field-desc">Dành cho firmware Imou 3.x mới (như IPC-DK2) có lớp logo riêng</div>
+                <div class="field-desc">Dành cho firmware Imou 3.x mới (như IPC-DK2, TA32CP) có lớp logo riêng</div>
               </div>
               <label class="switch">
                 <input type="checkbox" id="osdCommonEnable" />
@@ -543,12 +815,12 @@
 
             <div class="field-row">
               <div>
-                <div class="field-label">Nội dung chữ Tên Kênh (`ChannelTitle`)</div>
-                <div class="field-desc">Mặc định hãng để là "Imou". Có thể đổi tên phòng hoặc xoá trắng</div>
+                <div class="field-label">Nội dung chữ Tên Kênh trên Video (`ChannelTitle`)</div>
+                <div class="field-desc">Chữ in trực tiếp lên luồng hình ảnh của camera (khác với Tên quản lý trong ứng dụng)</div>
               </div>
               <div style="display:flex; gap:6px;">
-                <input type="text" id="osdChannelName" placeholder="Nhập tên hoặc để trống..." style="width:150px;" />
-                <button class="btn" onclick="document.getElementById('osdChannelName').value=' '">Xoá trắng</button>
+                <input type="text" id="osdChannelName" placeholder="Nhập tên hoặc xoá trắng..." style="width:155px;" />
+                <button class="btn" onclick="document.getElementById('osdChannelName').value=''">Xoá trắng</button>
               </div>
             </div>
 
@@ -568,7 +840,12 @@
           </div>
 
           <div class="card">
-            <div class="card-title"><span>🕒 Quản lý Ngày Tháng Năm & Giờ (`TimeTitle`)</span></div>
+            <div class="card-title">
+              <div class="card-title-left">
+                <span data-icon="clock"></span>
+                <span>Quản lý Ngày Tháng Năm & Giờ (`TimeTitle`)</span>
+              </div>
+            </div>
             <div class="field-row">
               <div>
                 <div class="field-label">Hiển thị Ngày Tháng Năm & Giờ trên Video</div>
@@ -605,7 +882,9 @@
             </div>
 
             <div style="margin-top:18px; display:flex; justify-content:flex-end; gap:10px;">
-              <button class="btn btn-primary" onclick="saveOsdSettings()">💾 Lưu Cấu hình OSD & Cập nhật Ảnh</button>
+              <button class="btn btn-primary" id="btnSaveOsd" onclick="saveOsdSettings()">
+                <span data-icon="save"></span> Lưu Cấu hình OSD & Cập nhật Ảnh
+              </button>
             </div>
           </div>
         </div>
@@ -616,8 +895,13 @@
         <div class="form-grid">
           <div class="card">
             <div class="card-title">
-              <span>☀️ Độ Sáng & Màu Sắc (`VideoColor`)</span>
-              <button class="btn" onclick="resetColorSliders()">↺ Mặc định (50)</button>
+              <div class="card-title-left">
+                <span data-icon="sun"></span>
+                <span>Độ Sáng & Màu Sắc (`VideoColor`)</span>
+              </div>
+              <button class="btn" onclick="resetColorSliders()">
+                <span data-icon="rotate-ccw"></span> Mặc định (50)
+              </button>
             </div>
 
             <div class="field-row">
@@ -689,7 +973,12 @@
           </div>
 
           <div class="card">
-            <div class="card-title"><span>🌙 Phơi Sáng, Ngược Sáng (WDR) & Lật Hình (`VideoInOptions`)</span></div>
+            <div class="card-title">
+              <div class="card-title-left">
+                <span data-icon="sliders-horizontal"></span>
+                <span>Phơi Sáng, Ngược Sáng (WDR) & Lật Hình (`VideoInOptions`)</span>
+              </div>
+            </div>
 
             <div class="field-row">
               <div>
@@ -760,7 +1049,9 @@
             </div>
 
             <div style="margin-top:18px; display:flex; justify-content:flex-end;">
-              <button class="btn btn-primary" onclick="saveImageSettings()">💾 Lưu Căn chỉnh Độ sáng & Hình ảnh</button>
+              <button class="btn btn-primary" id="btnSaveImage" onclick="saveImageSettings()">
+                <span data-icon="save"></span> Lưu Căn chỉnh Độ sáng & Hình ảnh
+              </button>
             </div>
           </div>
         </div>
@@ -770,7 +1061,12 @@
       <div id="tab-encode" class="tab-pane" style="display:none;">
         <div class="form-grid">
           <div class="card">
-            <div class="card-title"><span>🎞️ Luồng Chính — Main Stream (Ghi hình & Xem nét)</span></div>
+            <div class="card-title">
+              <div class="card-title-left">
+                <span data-icon="film"></span>
+                <span>Luồng Chính — Main Stream (Ghi hình & Xem nét)</span>
+              </div>
+            </div>
             <div class="field-row">
               <div>
                 <div class="field-label">Chuẩn nén Video (`Compression`)</div>
@@ -816,7 +1112,12 @@
           </div>
 
           <div class="card">
-            <div class="card-title"><span>📡 Luồng Phụ — Sub Stream (Nhận diện AI / Frigate Detect)</span></div>
+            <div class="card-title">
+              <div class="card-title-left">
+                <span data-icon="radio"></span>
+                <span>Luồng Phụ — Sub Stream (Nhận diện AI / Frigate Detect)</span>
+              </div>
+            </div>
             <div class="field-row">
               <div>
                 <div class="field-label">Chuẩn nén Video (`Compression`)</div>
@@ -848,7 +1149,9 @@
               </label>
             </div>
             <div style="margin-top:18px; display:flex; justify-content:flex-end;">
-              <button class="btn btn-primary" onclick="saveEncodeSettings()">💾 Lưu Cấu hình Stream</button>
+              <button class="btn btn-primary" id="btnSaveEncode" onclick="saveEncodeSettings()">
+                <span data-icon="save"></span> Lưu Cấu hình Stream
+              </button>
             </div>
           </div>
         </div>
@@ -858,22 +1161,183 @@
       <div id="tab-system" class="tab-pane" style="display:none;">
         <div class="card" style="margin-bottom:18px;">
           <div class="card-title">
-            <span>⚙️ Thông tin Phần cứng & Bảo trì</span>
-            <button class="btn btn-danger" onclick="rebootCurrentCamera()">🔄 Khởi động lại Camera (Reboot)</button>
+            <div class="card-title-left">
+              <span data-icon="cpu"></span>
+              <span>Thông tin Phần cứng & Bảo trì</span>
+            </div>
+            <div style="display:flex; gap:8px;">
+              <button class="btn" onclick="openCameraModal('edit')">
+                <span data-icon="pencil"></span> Sửa Tên & Ghi chú
+              </button>
+              <button class="btn btn-danger" onclick="rebootCurrentCamera()">
+                <span data-icon="power"></span> Khởi động lại Camera (Reboot)
+              </button>
+            </div>
           </div>
-          <div id="sysInfoBox" style="font-size:13px; line-height:1.8; color:var(--text);"></div>
+          <div id="sysInfoBox" style="font-size:13px; line-height:1.9; color:var(--text);"></div>
         </div>
         <div class="card">
-          <div class="card-title"><span>🧩 Toàn bộ bảng cấu hình JSON gốc từ Camera</span></div>
+          <div class="card-title">
+            <div class="card-title-left">
+              <span data-icon="code"></span>
+              <span>Toàn bộ bảng cấu hình JSON gốc từ Camera</span>
+            </div>
+          </div>
           <pre class="json-box" id="rawJsonBox">Chưa có dữ liệu</pre>
         </div>
       </div>
     </div>
   </main>
 
+  <!-- Camera Add / Edit / Rename Modal -->
+  <div class="modal-backdrop" id="cameraModal" onclick="if(event.target===this) closeCameraModal()">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title" id="cameraModalTitle">
+          <span data-icon="settings"></span>
+          <span>Cấu hình & Đổi tên Thiết bị</span>
+        </div>
+        <button class="btn btn-icon-only" onclick="closeCameraModal()">
+          <span data-icon="x"></span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="info-pill" id="cameraNameOriginInfo">
+          Tên thiết bị được lưu bền vững trong tệp cấu hình cá nhân <code>~/.config/imou-camera-studio/cameras.json</code> để dễ phân biệt các camera trong nhà.
+        </div>
+
+        <input type="hidden" id="modalMode" value="edit" />
+        <input type="hidden" id="modalOldIp" value="" />
+
+        <div class="modal-field">
+          <label for="modalCamName">Tên hiển thị quản lý trong ứng dụng</label>
+          <input type="text" id="modalCamName" placeholder="Ví dụ: Camera Cửa Trước, Camera Phòng Khách..." />
+          <div class="hint" id="modalOsdNameHint"></div>
+        </div>
+
+        <div class="modal-field" style="flex-direction:row; align-items:center; gap:8px;">
+          <input type="checkbox" id="modalSyncOsd" style="width:16px; height:16px; accent-color:var(--accent);" />
+          <label for="modalSyncOsd" style="font-weight:500; cursor:pointer;">Đồng bộ tên này lên chữ OSD góc video (`ChannelTitle`) của camera</label>
+        </div>
+
+        <div class="modal-row-2">
+          <div class="modal-field">
+            <label for="modalCamIp">Địa chỉ IP nội bộ (LAN)</label>
+            <input type="text" id="modalCamIp" placeholder="172.16.0.xxx" />
+          </div>
+          <div class="modal-field">
+            <label for="modalCamUser">Tài khoản (Username)</label>
+            <input type="text" id="modalCamUser" value="admin" />
+          </div>
+        </div>
+
+        <div class="modal-row-2">
+          <div class="modal-field">
+            <label for="modalCamPort">Cổng điều khiển (Dahua Port)</label>
+            <input type="number" id="modalCamPort" value="37777" />
+          </div>
+          <div class="modal-field">
+            <label for="modalCamRtsp">Cổng luồng video (RTSP Port)</label>
+            <input type="number" id="modalCamRtsp" value="554" />
+          </div>
+        </div>
+
+        <div class="modal-field">
+          <label for="modalCamPass">Mật khẩu thiết bị / Safety Code (lưu vào macOS Keychain)</label>
+          <div class="pass-field-group" style="width:100%;">
+            <input type="password" id="modalCamPass" placeholder="Để trống nếu giữ nguyên mật khẩu đã lưu..." />
+            <button type="button" class="pass-toggle-btn" onclick="togglePassVisibility('modalCamPass', this)" title="Hiện/Ẩn mật khẩu">
+              <span data-icon="eye"></span>
+            </button>
+          </div>
+          <div class="hint">Mã Safety Code gồm 8 ký tự in trên tem dưới đáy camera hoặc trong mục Nhãn thiết bị của app Imou Life.</div>
+        </div>
+
+        <div class="modal-field">
+          <label for="modalCamNotes">Ghi chú vị trí / Mô tả</label>
+          <input type="text" id="modalCamNotes" placeholder="Ví dụ: Lắp trần hiên nhà, PTZ 3MP..." />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <div>
+          <button class="btn btn-danger" id="btnDeleteCamera" onclick="deleteCameraFromModal()" style="display:none;">
+            <span data-icon="trash-2"></span> Xoá khỏi danh sách
+          </button>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn" onclick="closeCameraModal()">Huỷ</button>
+          <button class="btn btn-primary" id="btnSaveCameraModal" onclick="submitCameraModal()">
+            <span data-icon="save"></span> Lưu thông tin
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="toast" id="toast"></div>
 
   <script>
+    // Embedded Lucide SVG Icon Definitions (100% offline, crisp vector strokes)
+    const LUCIDE_PATHS = {
+      'video': '<path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5"/><rect x="2" y="6" width="14" height="12" rx="2"/>',
+      'refresh-cw': '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>',
+      'radar': '<path d="M19.07 4.93A10 10 0 0 0 6.99 3.34"/><path d="M4 6h.01"/><path d="M2.29 9.62A10 10 0 1 0 21.31 8.35"/><path d="M16.24 7.76A6 6 0 1 0 8.23 16.67"/><path d="M12 18h.01"/><path d="M17.99 11.66A6 6 0 0 1 15.77 16.67"/><circle cx="12" cy="12" r="2"/><path d="m13.41 10.59 5.66-5.66"/>',
+      'plus': '<path d="M5 12h14"/><path d="M12 5v14"/>',
+      'pencil': '<path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/>',
+      'key-round': '<path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/>',
+      'shield-alert': '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M12 8v4"/><path d="M12 16h.01"/>',
+      'eye': '<path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/>',
+      'eye-off': '<path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49"/><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242"/><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143"/><path d="m2 2 20 20"/>',
+      'check-circle': '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/>',
+      'camera': '<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>',
+      'image': '<rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>',
+      'zap': '<path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/>',
+      'play': '<polygon points="6 3 20 12 6 21 6 3"/>',
+      'pause': '<rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/>',
+      'sparkles': '<path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/>',
+      'clock': '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+      'calendar-clock': '<path d="M21 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3.5"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h5"/><path d="M17.5 17.5 16 16.3V14"/><circle cx="16" cy="16" r="6"/>',
+      'rotate-ccw': '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>',
+      'sun': '<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>',
+      'move': '<path d="M12 2v20"/><path d="m15 19-3 3-3-3"/><path d="m19 9 3 3-3 3"/><path d="M2 12h20"/><path d="m5 9-3 3 3 3"/><path d="m9 5 3-3 3 3"/>',
+      'arrow-up': '<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>',
+      'arrow-down': '<path d="M12 5v14"/><path d="m19 12-7 7-7-7"/>',
+      'arrow-left': '<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>',
+      'arrow-right': '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
+      'arrow-up-left': '<path d="M7 17V7h10"/><path d="M17 17 7 7"/>',
+      'arrow-up-right': '<path d="M7 7h10v10"/><path d="M7 17 17 7"/>',
+      'arrow-down-left': '<path d="M17 7 7 17"/><path d="M17 17H7V7"/>',
+      'arrow-down-right': '<path d="m7 7 10 10"/><path d="M17 7v10H7"/>',
+      'zoom-in': '<circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/><line x1="11" x2="11" y1="8" y2="14"/><line x1="8" x2="14" y1="11" y2="11"/>',
+      'zoom-out': '<circle cx="11" cy="11" r="8"/><line x1="21" x2="16.65" y1="21" y2="16.65"/><line x1="8" x2="14" y1="11" y2="11"/>',
+      'tag': '<path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/>',
+      'sliders-horizontal': '<line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/>',
+      'film': '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 3v18"/><path d="M3 7.5h4"/><path d="M3 12h18"/><path d="M3 16.5h4"/><path d="M17 3v18"/><path d="M17 7.5h4"/><path d="M17 16.5h4"/>',
+      'radio': '<path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"/><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"/><path d="M19.1 4.9C23 8.8 23 15.1 19.1 19"/>',
+      'cpu': '<rect width="16" height="16" x="4" y="4" rx="2"/><rect width="6" height="6" x="9" y="9" rx="1"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/>',
+      'save': '<path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/>',
+      'power': '<path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.77.04"/>',
+      'code': '<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>',
+      'settings': '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
+      'x': '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+      'trash-2': '<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/>',
+      'lock': '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>'
+    };
+
+    function svgIcon(name, extraClass = '') {
+      const p = LUCIDE_PATHS[name] || LUCIDE_PATHS['video'];
+      return `<svg class="lucide ${extraClass}" viewBox="0 0 24 24" aria-hidden="true">${p}</svg>`;
+    }
+
+    function hydrateStaticIcons() {
+      document.getElementById('brandIcon').innerHTML = svgIcon('video', 'lucide-lg');
+      document.querySelectorAll('[data-icon]').forEach(el => {
+        const name = el.getAttribute('data-icon');
+        const cls = el.className || '';
+        el.outerHTML = svgIcon(name, cls);
+      });
+    }
+
     let cameras = [];
     let currentIp = null;
     let currentInspect = null;
@@ -885,7 +1349,19 @@
       el.style.borderColor = isError ? 'var(--danger)' : 'var(--accent)';
       el.style.display = 'block';
       clearTimeout(el._timer);
-      el._timer = setTimeout(() => { el.style.display = 'none'; }, 3500);
+      el._timer = setTimeout(() => { el.style.display = 'none'; }, 3800);
+    }
+
+    function togglePassVisibility(inputId, btnEl) {
+      const inp = document.getElementById(inputId);
+      if (!inp) return;
+      if (inp.type === 'password') {
+        inp.type = 'text';
+        btnEl.innerHTML = svgIcon('eye-off');
+      } else {
+        inp.type = 'password';
+        btnEl.innerHTML = svgIcon('eye');
+      }
     }
 
     function syncSlider(id) {
@@ -901,17 +1377,35 @@
     }
 
     async function loadCameras(scanAll = false) {
-      showToast(scanAll ? '📡 Đang quét toàn mạng LAN cổng 37777...' : '🔄 Đang kiểm tra danh sách camera...');
-      const res = await fetch('/api/cameras?scan_all=' + (scanAll ? '1' : '0'));
-      const data = await res.json();
-      cameras = data.cameras || [];
-      renderCameraList();
-      if (!currentIp && cameras.length > 0) {
-        const firstReady = cameras.find(c => c.online && c.has_saved_password) || cameras[0];
-        selectCamera(firstReady.ip);
-      } else if (currentIp) {
+      const btnScan = document.getElementById('btnScanLan');
+      const btnRef = document.getElementById('btnRefreshList');
+      if (scanAll && btnScan) btnScan.disabled = true;
+      if (!scanAll && btnRef) btnRef.disabled = true;
+      showToast(scanAll ? 'Đang quét mạng nội bộ (ARP + Port 37777)...' : 'Đang kiểm tra trạng thái danh sách camera...');
+      try {
+        const res = await fetch('/api/cameras?scan_all=' + (scanAll ? '1' : '0'));
+        const data = await res.json();
+        cameras = data.cameras || [];
         renderCameraList();
+        if (scanAll) {
+          showToast(`Đã hoàn tất quét LAN: tìm thấy ${cameras.length} camera.`);
+        }
+        if (!currentIp && cameras.length > 0) {
+          const firstReady = cameras.find(c => c.online && c.has_saved_password) || cameras[0];
+          selectCamera(firstReady.ip);
+        } else if (currentIp) {
+          updateTopbarMeta(currentIp);
+        }
+      } catch (err) {
+        showToast('Không thể tải danh sách camera: ' + err.message, true);
+      } finally {
+        if (btnScan) btnScan.disabled = false;
+        if (btnRef) btnRef.disabled = false;
       }
+    }
+
+    function escapeHtml(s) {
+      return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     }
 
     function renderCameraList() {
@@ -923,44 +1417,82 @@
         div.onclick = () => selectCamera(cam.ip);
         div.innerHTML = `
           <div class="cam-item-top">
-            <span class="cam-name">${cam.name || cam.ip}</span>
+            <div class="cam-name-wrap">
+              <span class="cam-name">${escapeHtml(cam.name || cam.ip)}</span>
+              <button class="cam-edit-mini" title="Đổi tên / Sửa thông tin camera" onclick="event.stopPropagation(); selectCamera('${escapeHtml(cam.ip)}').then(() => openCameraModal('edit'))">
+                ${svgIcon('pencil', 'lucide-sm')}
+              </button>
+            </div>
             <span class="badge ${cam.online ? 'online' : 'offline'}">${cam.online ? 'ONLINE' : 'OFFLINE'}</span>
           </div>
           <div class="cam-meta">
-            <span>${cam.ip} · ${cam.model || 'Imou'}</span>
-            <span class="badge ${cam.has_saved_password ? 'key' : 'nokey'}">${cam.has_saved_password ? 'Đã lưu Key' : 'Chưa có Key'}</span>
+            <span>${escapeHtml(cam.ip)} · ${escapeHtml(cam.model || 'Imou')}</span>
+            <span class="badge ${cam.has_saved_password ? 'key' : 'nokey'}">
+              ${svgIcon(cam.has_saved_password ? 'key-round' : 'lock', 'lucide-sm')}
+              ${cam.has_saved_password ? 'Đã lưu Key' : 'Chưa có Key'}
+            </span>
           </div>
         `;
         list.appendChild(div);
       });
     }
 
+    function updateTopbarMeta(ip) {
+      const cam = cameras.find(c => c.ip === ip) || { ip, name: ip };
+      document.getElementById('headerTitle').textContent = `${cam.name || cam.ip} (${cam.ip})`;
+      const parts = [cam.model || 'Imou IPC'];
+      if (cam.serial_no) parts.push(`SN: ${cam.serial_no}`);
+      if (cam.mac) parts.push(`MAC: ${cam.mac}`);
+      if (cam.notes) parts.push(cam.notes);
+      document.getElementById('headerSub').textContent = parts.join(' · ');
+    }
+
     async function selectCamera(ip) {
       currentIp = ip;
       stopAutoSnapshot();
+      // Always clear quick password input when switching cameras so old password doesn't linger
+      const qInp = document.getElementById('quickPassInput');
+      if (qInp) {
+        qInp.value = '';
+        qInp.type = 'password';
+      }
       renderCameraList();
-      const cam = cameras.find(c => c.ip === ip) || { ip, name: ip };
-      document.getElementById('headerTitle').textContent = `${cam.name} (${cam.ip})`;
-      document.getElementById('headerSub').textContent = `${cam.model || 'Imou IPC'} · MAC: ${cam.mac || 'N/A'} · ${cam.notes || ''}`;
+      updateTopbarMeta(ip);
       document.getElementById('snapshotImg').style.display = 'none';
-      document.getElementById('snapshotPlaceholder').style.display = 'block';
-      document.getElementById('snapshotPlaceholder').innerHTML = '⏳ Đang kết nối và đọc thông số từ camera...';
+      document.getElementById('snapshotPlaceholder').style.display = 'flex';
+      document.getElementById('snapshotPlaceholder').innerHTML = `${svgIcon('refresh-cw', 'lucide-lg')}<span>Đang kết nối và đọc cấu hình từ camera ${escapeHtml(ip)}...</span>`;
       await reloadCurrentCamera();
     }
 
     async function reloadCurrentCamera() {
       if (!currentIp) return;
-      const res = await fetch('/api/camera/inspect?ip=' + encodeURIComponent(currentIp));
-      const data = await res.json();
-      if (!data.ok) {
-        document.getElementById('authBanner').style.display = 'flex';
-        document.getElementById('authErrorText').textContent = data.error || 'Chưa có mật khẩu đúng cho camera này.';
-        document.getElementById('snapshotPlaceholder').innerHTML = '🔒 Vui lòng nhập mật khẩu / Safety Code của camera ở khung màu vàng phía trên để truy cập.';
-        return;
+      const btn = document.getElementById('btnReloadCam');
+      if (btn) btn.disabled = true;
+      try {
+        const res = await fetch('/api/camera/inspect?ip=' + encodeURIComponent(currentIp));
+        const data = await res.json();
+        if (!data.ok) {
+          document.getElementById('authBanner').style.display = 'flex';
+          document.getElementById('authErrorText').textContent = data.error || 'Chưa có mật khẩu đúng cho camera này.';
+          document.getElementById('snapshotPlaceholder').innerHTML = `${svgIcon('lock', 'lucide-lg')}<span>Vui lòng nhập mật khẩu / Safety Code của camera ở khung phía trên để truy cập.</span>`;
+          return;
+        }
+        document.getElementById('authBanner').style.display = 'none';
+        if (data.camera_meta) {
+          const idx = cameras.findIndex(c => c.ip === currentIp);
+          if (idx >= 0) {
+            cameras[idx] = { ...cameras[idx], ...data.camera_meta, online: true, has_saved_password: true };
+          } else {
+            cameras.push({ ...data.camera_meta, online: true, has_saved_password: true });
+          }
+          renderCameraList();
+          updateTopbarMeta(currentIp);
+        }
+        populateCameraData(data);
+        refreshSnapshot(false);
+      } finally {
+        if (btn) btn.disabled = false;
       }
-      document.getElementById('authBanner').style.display = 'none';
-      populateCameraData(data);
-      refreshSnapshot(false);
     }
 
     function populateCameraData(data) {
@@ -969,6 +1501,7 @@
       const osd = s.osd || {};
       const img = s.image || {};
       const enc = s.encode || {};
+      const cam = cameras.find(c => c.ip === currentIp) || {};
 
       // OSD
       document.getElementById('osdLogoEnable').checked = !!osd.logo_enabled;
@@ -979,7 +1512,9 @@
       } else {
         commonRow.style.display = 'none';
       }
-      document.getElementById('osdChannelName').value = osd.channel_name || '';
+      // Trim single-space placeholder so input looks clean when blank
+      const rawChName = osd.channel_name || '';
+      document.getElementById('osdChannelName').value = rawChName === ' ' ? '' : rawChName;
       document.getElementById('osdCustomText').value = osd.custom_text || '';
       document.getElementById('osdCustomEnable').checked = !!osd.custom_enabled;
       document.getElementById('osdTimeEnable').checked = !!osd.time_enabled;
@@ -1019,12 +1554,14 @@
 
       // System Info & Raw JSON
       document.getElementById('sysInfoBox').innerHTML = `
-        <div><b>Model phần cứng:</b> ${s.device_type || 'N/A'}</div>
-        <div><b>Số Serial (SN):</b> ${s.serial_no || 'N/A'}</div>
-        <div><b>Phiên bản Firmware:</b> ${s.firmware || 'N/A'} (Build: ${s.build_date || 'N/A'})</div>
+        <div><b>Tên quản lý trong Studio:</b> ${escapeHtml(cam.name || currentIp)} <span style="color:var(--muted); font-size:12px;">(Lưu tại ~/.config/imou-camera-studio/cameras.json)</span></div>
+        <div><b>Tên kênh OSD trên mặt Video (ChannelTitle):</b> <code>${escapeHtml(rawChName.trim() || '(Đang để trống)')}</code></div>
+        <div><b>Model phần cứng (đọc từ camera):</b> ${escapeHtml(s.device_type || cam.model || 'N/A')}</div>
+        <div><b>Số Serial (SN):</b> <code>${escapeHtml(s.serial_no || 'N/A')}</code> · <b>Địa chỉ MAC:</b> <code>${escapeHtml(cam.mac || 'N/A')}</code></div>
+        <div><b>Phiên bản Firmware:</b> ${escapeHtml(s.firmware || 'N/A')} (Build: ${escapeHtml(s.build_date || 'N/A')})</div>
         <div><b>Độ phân giải Main Stream:</b> ${enc.main_width}×${enc.main_height} (${enc.main_codec}, ${enc.main_fps} FPS)</div>
-        <div><b>Đường dẫn RTSP Luồng chính:</b> <code>rtsp://admin:&lt;password&gt;@${currentIp}:554/cam/realmonitor?channel=1&subtype=0</code></div>
-        <div><b>Đường dẫn RTSP Luồng phụ:</b> <code>rtsp://admin:&lt;password&gt;@${currentIp}:554/cam/realmonitor?channel=1&subtype=1</code></div>
+        <div><b>Đường dẫn RTSP Luồng chính:</b> <code>rtsp://admin:&lt;password&gt;@${currentIp}:${cam.rtsp_port || 554}/cam/realmonitor?channel=1&subtype=0</code></div>
+        <div><b>Đường dẫn RTSP Luồng phụ:</b> <code>rtsp://admin:&lt;password&gt;@${currentIp}:${cam.rtsp_port || 554}/cam/realmonitor?channel=1&subtype=1</code></div>
       `;
       document.getElementById('rawJsonBox').textContent = JSON.stringify(data.raw || {}, null, 2);
     }
@@ -1041,8 +1578,8 @@
         ph.style.display = 'none';
       };
       preload.onerror = () => {
-        if (!img.src) {
-          ph.innerHTML = '⚠️ Không lấy được khung hình RTSP. Hãy thử lại hoặc kiểm tra kết nối.';
+        if (!img.src || img.style.display === 'none') {
+          ph.innerHTML = `${svgIcon('shield-alert', 'lucide-lg')}<span>Không lấy được khung hình RTSP. Hãy kiểm tra lại kết nối hoặc bấm Chụp lại.</span>`;
         }
       };
       preload.src = url;
@@ -1053,7 +1590,7 @@
       if (autoSnapTimer) {
         stopAutoSnapshot();
       } else {
-        btn.textContent = '⏸️ Dừng Live';
+        btn.innerHTML = `${svgIcon('pause')} Dừng Live`;
         btn.classList.add('btn-primary');
         refreshSnapshot(true);
         autoSnapTimer = setInterval(() => refreshSnapshot(true), 2500);
@@ -1067,86 +1604,233 @@
       }
       const btn = document.getElementById('autoSnapBtn');
       if (btn) {
-        btn.textContent = '▶️ Live 2.5s';
+        btn.innerHTML = `${svgIcon('play')} Live 2.5s`;
         btn.classList.remove('btn-primary');
       }
     }
 
     async function saveQuickPassword() {
+      if (!currentIp) return;
       const pwd = document.getElementById('quickPassInput').value.trim();
-      if (!pwd) return showToast('Vui lòng nhập mật khẩu', true);
-      showToast('🔐 Đang lưu vào macOS Keychain và thử đăng nhập...');
-      const res = await fetch('/api/camera/password', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ ip: currentIp, username: 'admin', password: pwd })
-      });
-      const data = await res.json();
-      if (!data.ok) {
-        showToast(data.error || 'Sai mật khẩu', true);
-        document.getElementById('authErrorText').textContent = data.error || 'Đăng nhập thất bại';
-        return;
+      if (!pwd) return showToast('Vui lòng nhập mật khẩu hoặc Safety Code', true);
+      const btn = document.getElementById('btnQuickSavePass');
+      if (btn) btn.disabled = true;
+      showToast('Đang lưu mật khẩu vào macOS Keychain và đọc thông số camera...');
+      try {
+        const cam = cameras.find(c => c.ip === currentIp) || {};
+        const res = await fetch('/api/camera/password', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ ip: currentIp, username: cam.username || 'admin', password: pwd })
+        });
+        const data = await res.json();
+        if (Array.isArray(data.cameras)) {
+          cameras = data.cameras;
+        }
+        if (!data.ok) {
+          renderCameraList();
+          showToast(data.error || 'Sai mật khẩu hoặc không kết nối được', true);
+          document.getElementById('authErrorText').textContent = data.error || 'Đăng nhập thất bại';
+          return;
+        }
+        showToast('Đăng nhập thành công! Đã lưu mật khẩu vào Keychain và cập nhật cấu hình.');
+        document.getElementById('authBanner').style.display = 'none';
+        renderCameraList();
+        updateTopbarMeta(currentIp);
+        populateCameraData(data);
+        refreshSnapshot(false);
+      } catch (err) {
+        showToast('Lỗi kết nối máy chủ local: ' + err.message, true);
+      } finally {
+        if (btn) btn.disabled = false;
       }
-      showToast('✅ Đăng nhập thành công & đã lưu vào Keychain!');
-      const cam = cameras.find(c => c.ip === currentIp);
-      if (cam) cam.has_saved_password = true;
-      renderCameraList();
-      document.getElementById('authBanner').style.display = 'none';
-      populateCameraData(data);
-      refreshSnapshot(false);
     }
 
     function openPasswordModal() {
       if (!currentIp) return;
-      const pwd = prompt(`Nhập mật khẩu (hoặc Safety Code) cho camera ${currentIp}:`);
-      if (pwd !== null && pwd.trim() !== '') {
-        document.getElementById('quickPassInput').value = pwd.trim();
-        saveQuickPassword();
+      openCameraModal('edit', true);
+    }
+
+    function openCameraModal(mode = 'edit', focusPassword = false) {
+      const modal = document.getElementById('cameraModal');
+      document.getElementById('modalMode').value = mode;
+      const passInp = document.getElementById('modalCamPass');
+      passInp.value = '';
+      passInp.type = 'password';
+
+      if (mode === 'add') {
+        document.getElementById('cameraModalTitle').innerHTML = `${svgIcon('plus')} <span>Thêm Camera Imou / Dahua mới</span>`;
+        document.getElementById('modalOldIp').value = '';
+        document.getElementById('modalCamName').value = '';
+        document.getElementById('modalCamIp').value = '';
+        document.getElementById('modalCamUser').value = 'admin';
+        document.getElementById('modalCamPort').value = '37777';
+        document.getElementById('modalCamRtsp').value = '554';
+        document.getElementById('modalCamNotes').value = '';
+        document.getElementById('modalSyncOsd').checked = false;
+        document.getElementById('modalOsdNameHint').textContent = 'Đặt tên gợi nhớ để hiển thị ở danh sách bên trái.';
+        document.getElementById('btnDeleteCamera').style.display = 'none';
+        passInp.placeholder = 'Nhập mật khẩu / Safety Code 8 ký tự...';
+      } else {
+        const cam = cameras.find(c => c.ip === currentIp) || { ip: currentIp || '' };
+        const osdName = currentInspect?.summary?.osd?.channel_name?.trim() || '';
+        document.getElementById('cameraModalTitle').innerHTML = `${svgIcon('settings')} <span>Đổi tên & Cấu hình Camera (${escapeHtml(cam.ip)})</span>`;
+        document.getElementById('modalOldIp').value = cam.ip || '';
+        document.getElementById('modalCamName').value = cam.name || '';
+        document.getElementById('modalCamIp').value = cam.ip || '';
+        document.getElementById('modalCamUser').value = cam.username || 'admin';
+        document.getElementById('modalCamPort').value = cam.port || 37777;
+        document.getElementById('modalCamRtsp').value = cam.rtsp_port || 554;
+        document.getElementById('modalCamNotes').value = cam.notes || '';
+        document.getElementById('modalSyncOsd').checked = false;
+        document.getElementById('modalOsdNameHint').textContent = osdName
+          ? `Tên OSD hiện tại lưu trong chip camera: "${osdName}" · Model: ${cam.model || 'Imou'}`
+          : `Model phần cứng: ${cam.model || 'Imou'} · SN: ${cam.serial_no || 'N/A'}`;
+        document.getElementById('btnDeleteCamera').style.display = 'inline-flex';
+        passInp.placeholder = cam.has_saved_password
+          ? 'Đã có mật khẩu trong Keychain (Nhập vào đây nếu muốn đổi/cập nhật mới)...'
+          : 'Nhập mật khẩu / Safety Code 8 ký tự...';
+      }
+
+      modal.classList.add('open');
+      setTimeout(() => {
+        if (focusPassword) {
+          document.getElementById('modalCamPass').focus();
+        } else if (mode === 'add') {
+          document.getElementById('modalCamIp').focus();
+        } else {
+          document.getElementById('modalCamName').focus();
+          document.getElementById('modalCamName').select();
+        }
+      }, 60);
+    }
+
+    function closeCameraModal() {
+      document.getElementById('cameraModal').classList.remove('open');
+    }
+
+    async function submitCameraModal() {
+      const mode = document.getElementById('modalMode').value;
+      const oldIp = document.getElementById('modalOldIp').value.trim();
+      const ip = document.getElementById('modalCamIp').value.trim();
+      const name = document.getElementById('modalCamName').value.trim() || `Camera (${ip})`;
+      const username = document.getElementById('modalCamUser').value.trim() || 'admin';
+      const port = parseInt(document.getElementById('modalCamPort').value, 10) || 37777;
+      const rtsp_port = parseInt(document.getElementById('modalCamRtsp').value, 10) || 554;
+      const password = document.getElementById('modalCamPass').value.trim();
+      const notes = document.getElementById('modalCamNotes').value.trim();
+      const sync_osd_title = document.getElementById('modalSyncOsd').checked;
+
+      if (!ip) {
+        return showToast('Vui lòng nhập địa chỉ IP của camera', true);
+      }
+
+      const btn = document.getElementById('btnSaveCameraModal');
+      btn.disabled = true;
+      showToast('Đang lưu cấu hình thiết bị và đồng bộ dữ liệu...');
+
+      try {
+        const endpoint = mode === 'add' ? '/api/camera/add' : '/api/camera/update';
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            old_ip: oldIp,
+            ip,
+            name,
+            username,
+            port,
+            rtsp_port,
+            password,
+            notes,
+            sync_osd_title
+          })
+        });
+        const data = await res.json();
+        if (!data.ok) {
+          showToast(data.error || 'Không thể lưu thông tin camera', true);
+          return;
+        }
+        if (Array.isArray(data.cameras)) {
+          cameras = data.cameras;
+        }
+        currentIp = ip;
+        closeCameraModal();
+        renderCameraList();
+        updateTopbarMeta(ip);
+
+        if (data.inspect) {
+          if (data.inspect.ok) {
+            document.getElementById('authBanner').style.display = 'none';
+            populateCameraData(data.inspect);
+            refreshSnapshot(false);
+            showToast(`Đã lưu thông tin "${name}" và kết nối camera thành công!`);
+          } else {
+            document.getElementById('authBanner').style.display = 'flex';
+            document.getElementById('authErrorText').textContent = data.inspect.error || 'Sai mật khẩu hoặc không thể kết nối.';
+            showToast(data.inspect.error || 'Đã lưu tên camera nhưng đăng nhập thất bại', true);
+          }
+        } else {
+          showToast(`Đã lưu thông tin thiết bị "${name}"!`);
+          await reloadCurrentCamera();
+        }
+      } catch (err) {
+        showToast('Lỗi khi lưu thông tin: ' + err.message, true);
+      } finally {
+        btn.disabled = false;
       }
     }
 
-    async function promptAddCamera() {
-      const ip = prompt('Nhập địa chỉ IP của camera Imou/Dahua (ví dụ: 192.168.1.250):');
+    async function deleteCameraFromModal() {
+      const ip = document.getElementById('modalOldIp').value.trim();
       if (!ip) return;
-      const name = prompt('Đặt tên gợi nhớ cho camera:', `Camera (${ip.trim()})`) || ip.trim();
-      const password = prompt('Nhập mật khẩu / Safety Code (có thể bỏ trống nhập sau):') || '';
-      const res = await fetch('/api/camera/add', {
+      if (!confirm(`Bạn có chắc muốn xoá camera ${ip} khỏi danh sách quản lý?`)) return;
+      const res = await fetch('/api/camera/delete', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ ip: ip.trim(), name: name.trim(), password: password.trim() })
+        body: JSON.stringify({ ip, remove_keychain: false })
       });
       const data = await res.json();
       if (data.ok) {
-        showToast('✅ Đã thêm camera ' + name);
-        await loadCameras(false);
-        selectCamera(ip.trim());
+        cameras = data.cameras || [];
+        closeCameraModal();
+        showToast(`Đã xoá camera ${ip} khỏi danh sách.`);
+        currentIp = cameras.length > 0 ? cameras[0].ip : null;
+        renderCameraList();
+        if (currentIp) selectCamera(currentIp);
       }
     }
 
     async function saveOsdSettings() {
       if (!currentIp) return;
-      showToast('💾 Đang áp dụng cấu hình OSD lên camera...');
-      const payload = {
-        ip: currentIp,
-        logo_enabled: document.getElementById('osdLogoEnable').checked,
-        common_osd_enabled: document.getElementById('osdCommonEnable').checked,
-        channel_name: document.getElementById('osdChannelName').value,
-        custom_text: document.getElementById('osdCustomText').value,
-        custom_enabled: document.getElementById('osdCustomEnable').checked,
-        time_enabled: document.getElementById('osdTimeEnable').checked,
-        show_week: document.getElementById('osdWeekEnable').checked,
-        font_size: parseInt(document.getElementById('osdFontSize').value, 10)
-      };
-      const res = await fetch('/api/camera/osd', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(payload)
-      });
-      const data = await res.json();
-      if (!data.ok) return showToast(data.error || 'Lỗi khi lưu OSD', true);
-      if (data.camera && data.camera.ok) populateCameraData(data.camera);
-      showToast('✅ Đã lưu cấu hình OSD! Đang chụp lại ảnh mới...');
-      setTimeout(() => refreshSnapshot(false), 700);
+      const btn = document.getElementById('btnSaveOsd');
+      if (btn) btn.disabled = true;
+      showToast('Đang lưu cấu hình OSD lên camera...');
+      try {
+        const payload = {
+          ip: currentIp,
+          logo_enabled: document.getElementById('osdLogoEnable').checked,
+          common_osd_enabled: document.getElementById('osdCommonEnable').checked,
+          channel_name: document.getElementById('osdChannelName').value,
+          custom_text: document.getElementById('osdCustomText').value,
+          custom_enabled: document.getElementById('osdCustomEnable').checked,
+          time_enabled: document.getElementById('osdTimeEnable').checked,
+          show_week: document.getElementById('osdWeekEnable').checked,
+          font_size: parseInt(document.getElementById('osdFontSize').value, 10)
+        };
+        const res = await fetch('/api/camera/osd', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!data.ok) return showToast(data.error || 'Lỗi khi lưu OSD', true);
+        if (data.camera && data.camera.ok) populateCameraData(data.camera);
+        showToast('Đã lưu cấu hình OSD lên camera! Đang cập nhật ảnh xem trước...');
+        setTimeout(() => refreshSnapshot(false), 600);
+      } finally {
+        if (btn) btn.disabled = false;
+      }
     }
 
     function resetColorSliders() {
@@ -1159,58 +1843,70 @@
 
     async function saveImageSettings() {
       if (!currentIp) return;
-      showToast('💾 Đang áp dụng thông số Độ sáng & Hình ảnh...');
-      const payload = {
-        ip: currentIp,
-        brightness: parseInt(document.getElementById('imgBrightness').value, 10),
-        contrast: parseInt(document.getElementById('imgContrast').value, 10),
-        saturation: parseInt(document.getElementById('imgSaturation').value, 10),
-        sharpness: parseInt(document.getElementById('imgSharpness').value, 10),
-        gamma: parseInt(document.getElementById('imgGamma').value, 10),
-        exposure_compensation: parseInt(document.getElementById('imgExpComp').value, 10),
-        wdr: parseInt(document.getElementById('imgWdr').value, 10),
-        style: document.getElementById('imgStyle').value,
-        day_night_color: parseInt(document.getElementById('imgDayNight').value, 10),
-        anti_flicker: parseInt(document.getElementById('imgAntiFlicker').value, 10),
-        mirror: document.getElementById('imgMirror').checked,
-        flip: document.getElementById('imgFlip').checked
-      };
-      const res = await fetch('/api/camera/image', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(payload)
-      });
-      const data = await res.json();
-      if (!data.ok) return showToast(data.error || 'Lỗi khi lưu cấu hình hình ảnh', true);
-      if (data.camera && data.camera.ok) populateCameraData(data.camera);
-      showToast('✅ Đã lưu Độ sáng & Hình ảnh! Đang chụp lại ảnh mới...');
-      setTimeout(() => refreshSnapshot(false), 700);
+      const btn = document.getElementById('btnSaveImage');
+      if (btn) btn.disabled = true;
+      showToast('Đang áp dụng thông số Độ sáng & Hình ảnh lên camera...');
+      try {
+        const payload = {
+          ip: currentIp,
+          brightness: parseInt(document.getElementById('imgBrightness').value, 10),
+          contrast: parseInt(document.getElementById('imgContrast').value, 10),
+          saturation: parseInt(document.getElementById('imgSaturation').value, 10),
+          sharpness: parseInt(document.getElementById('imgSharpness').value, 10),
+          gamma: parseInt(document.getElementById('imgGamma').value, 10),
+          exposure_compensation: parseInt(document.getElementById('imgExpComp').value, 10),
+          wdr: parseInt(document.getElementById('imgWdr').value, 10),
+          style: document.getElementById('imgStyle').value,
+          day_night_color: parseInt(document.getElementById('imgDayNight').value, 10),
+          anti_flicker: parseInt(document.getElementById('imgAntiFlicker').value, 10),
+          mirror: document.getElementById('imgMirror').checked,
+          flip: document.getElementById('imgFlip').checked
+        };
+        const res = await fetch('/api/camera/image', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!data.ok) return showToast(data.error || 'Lỗi khi lưu cấu hình hình ảnh', true);
+        if (data.camera && data.camera.ok) populateCameraData(data.camera);
+        showToast('Đã lưu Độ sáng & Hình ảnh! Đang chụp lại ảnh mới...');
+        setTimeout(() => refreshSnapshot(false), 600);
+      } finally {
+        if (btn) btn.disabled = false;
+      }
     }
 
     async function saveEncodeSettings() {
       if (!currentIp) return;
-      showToast('💾 Đang lưu cấu hình luồng Video/Audio...');
-      const payload = {
-        ip: currentIp,
-        main_codec: document.getElementById('encMainCodec').value,
-        main_fps: parseInt(document.getElementById('encMainFps').value, 10),
-        main_bitrate: parseInt(document.getElementById('encMainBitrate').value, 10),
-        main_bitrate_ctrl: document.getElementById('encMainCtrl').value,
-        main_audio: document.getElementById('encMainAudio').checked,
-        sub_codec: document.getElementById('encSubCodec').value,
-        sub_fps: parseInt(document.getElementById('encSubFps').value, 10),
-        sub_bitrate: parseInt(document.getElementById('encSubBitrate').value, 10),
-        sub_audio: document.getElementById('encSubAudio').checked
-      };
-      const res = await fetch('/api/camera/encode', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(payload)
-      });
-      const data = await res.json();
-      if (!data.ok) return showToast(data.error || 'Lỗi khi lưu Encode', true);
-      if (data.camera && data.camera.ok) populateCameraData(data.camera);
-      showToast('✅ Đã cập nhật cấu hình luồng Stream!');
+      const btn = document.getElementById('btnSaveEncode');
+      if (btn) btn.disabled = true;
+      showToast('Đang lưu cấu hình luồng Video/Audio...');
+      try {
+        const payload = {
+          ip: currentIp,
+          main_codec: document.getElementById('encMainCodec').value,
+          main_fps: parseInt(document.getElementById('encMainFps').value, 10),
+          main_bitrate: parseInt(document.getElementById('encMainBitrate').value, 10),
+          main_bitrate_ctrl: document.getElementById('encMainCtrl').value,
+          main_audio: document.getElementById('encMainAudio').checked,
+          sub_codec: document.getElementById('encSubCodec').value,
+          sub_fps: parseInt(document.getElementById('encSubFps').value, 10),
+          sub_bitrate: parseInt(document.getElementById('encSubBitrate').value, 10),
+          sub_audio: document.getElementById('encSubAudio').checked
+        };
+        const res = await fetch('/api/camera/encode', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!data.ok) return showToast(data.error || 'Lỗi khi lưu Encode', true);
+        if (data.camera && data.camera.ok) populateCameraData(data.camera);
+        showToast('Đã cập nhật cấu hình luồng Stream thành công!');
+      } finally {
+        if (btn) btn.disabled = false;
+      }
     }
 
     async function quickPreset(type) {
@@ -1218,7 +1914,7 @@
       if (type === 'hide_logo') {
         document.getElementById('osdLogoEnable').checked = false;
         document.getElementById('osdCommonEnable').checked = false;
-        document.getElementById('osdChannelName').value = ' ';
+        document.getElementById('osdChannelName').value = '';
         await saveOsdSettings();
       } else if (type === 'hide_time') {
         document.getElementById('osdTimeEnable').checked = false;
@@ -1228,7 +1924,7 @@
         document.getElementById('osdCommonEnable').checked = false;
         document.getElementById('osdTimeEnable').checked = false;
         document.getElementById('osdCustomEnable').checked = false;
-        document.getElementById('osdChannelName').value = ' ';
+        document.getElementById('osdChannelName').value = '';
         await saveOsdSettings();
       } else if (type === 'show_time_only') {
         document.getElementById('osdLogoEnable').checked = false;
@@ -1249,7 +1945,7 @@
 
     async function sendPtz(action) {
       if (!currentIp) return;
-      showToast('🕹️ PTZ: ' + action);
+      showToast('PTZ: ' + action);
       const res = await fetch('/api/camera/ptz', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -1259,190 +1955,26 @@
       if (data.ok) {
         setTimeout(() => refreshSnapshot(true), 400);
       } else {
-        showToast(data.error || 'Camera không hỗ trợ PTZ hoặc sai mật khẩu', true);
+        showToast(data.error || 'Camera không hỗ trợ PTZ hoặc chưa có mật khẩu', true);
       }
     }
 
     async function rebootCurrentCamera() {
       if (!currentIp) return;
       if (!confirm(`Bạn có chắc chắn muốn khởi động lại camera ${currentIp}?`)) return;
-      showToast('🔄 Đang gửi lệnh khởi động lại camera...');
+      showToast('Đang gửi lệnh khởi động lại camera...');
       const res = await fetch('/api/camera/reboot', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ ip: currentIp })
       });
       const data = await res.json();
-      if (data.ok) showToast('✅ Camera đang khởi động lại (mất khoảng 45 giây).');
+      if (data.ok) showToast('Camera đang khởi động lại (mất khoảng 45 giây).');
       else showToast(data.error || 'Lỗi khi gửi lệnh reboot', true);
     }
 
-    function renderDemoCanvas() {
-      const canvas = document.createElement('canvas');
-      canvas.width = 1280;
-      canvas.height = 720;
-      const ctx = canvas.getContext('2d');
-      // Dark architectural server room / studio scene
-      const grad = ctx.createLinearGradient(0, 0, 1280, 720);
-      grad.addColorStop(0, '#0f172a');
-      grad.addColorStop(0.5, '#1e293b');
-      grad.addColorStop(1, '#090d16');
-      ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, 1280, 720);
-
-      // Subtle perspective grid & server racks
-      ctx.strokeStyle = 'rgba(59, 130, 246, 0.14)';
-      ctx.lineWidth = 1.5;
-      for (let x = 80; x < 1280; x += 80) {
-        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 720); ctx.stroke();
-      }
-      for (let y = 60; y < 720; y += 60) {
-        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(1280, y); ctx.stroke();
-      }
-
-      // Draw 3 server rack cabinets
-      [220, 520, 820].forEach((rx, idx) => {
-        ctx.fillStyle = '#0b1120';
-        ctx.strokeStyle = '#334155';
-        ctx.lineWidth = 2;
-        ctx.fillRect(rx, 150, 220, 440);
-        ctx.strokeRect(rx, 150, 220, 440);
-        for (let sy = 175; sy < 560; sy += 38) {
-          ctx.fillStyle = '#162033';
-          ctx.fillRect(rx + 14, sy, 192, 26);
-          ctx.fillStyle = (sy + idx * 19) % 3 === 0 ? '#10b981' : '#3b82f6';
-          ctx.beginPath(); ctx.arc(rx + 30, sy + 13, 3.5, 0, Math.PI * 2); ctx.fill();
-          ctx.fillStyle = '#10b981';
-          ctx.beginPath(); ctx.arc(rx + 44, sy + 13, 3.5, 0, Math.PI * 2); ctx.fill();
-        }
-      });
-
-      // Simulated OSD TimeTitle (top-right)
-      if (document.getElementById('osdTimeEnable').checked) {
-        ctx.font = 'bold 26px "SF Mono", Menlo, monospace';
-        ctx.fillStyle = 'rgba(0,0,0,0.45)';
-        ctx.fillRect(830, 28, 410, 42);
-        ctx.fillStyle = '#f8fafc';
-        ctx.fillText('2026-10-18 07:12:45', 846, 57);
-      }
-
-      // Simulated OSD ChannelTitle / Logo (bottom-right)
-      if (document.getElementById('osdLogoEnable').checked) {
-        const name = (document.getElementById('osdChannelName').value || 'Server Room').trim();
-        if (name) {
-          ctx.font = 'bold 28px -apple-system, sans-serif';
-          ctx.fillStyle = 'rgba(0,0,0,0.45)';
-          ctx.fillRect(980, 640, 260, 46);
-          ctx.fillStyle = '#f8fafc';
-          ctx.fillText(name, 1000, 672);
-        }
-      }
-
-      // Live RTSP badge (top-left)
-      ctx.fillStyle = 'rgba(16, 185, 129, 0.22)';
-      ctx.fillRect(32, 28, 250, 38);
-      ctx.fillStyle = '#34d399';
-      ctx.font = 'bold 17px -apple-system, sans-serif';
-      ctx.fillText('● LIVE RTSP 1080P · 25 FPS', 48, 53);
-
-      const img = document.getElementById('snapshotImg');
-      const ph = document.getElementById('snapshotPlaceholder');
-      img.src = canvas.toDataURL('image/jpeg', 0.92);
-      img.style.display = 'block';
-      ph.style.display = 'none';
-    }
-
-    function initDemoMode() {
-      cameras = [
-        { ip: '192.168.1.26', name: 'Camera Server Lab', model: 'IPC-A26HS', mac: '00:1A:2B:74:91:01', online: true, has_saved_password: true, notes: 'Server Room (Port 37777 · Keychain Ready)' },
-        { ip: '192.168.1.80', name: 'Camera Living Room', model: 'IPC-DK2-2H1W', mac: '00:1A:2B:9B:71:02', online: true, has_saved_password: true, notes: 'Living Room (Firmware 3.x · Keychain Ready)' },
-        { ip: '192.168.1.250', name: 'Camera Front Gate', model: 'IPC-F22-D', mac: '00:1A:2B:83:7E:03', online: true, has_saved_password: true, notes: 'Outdoor Bullet Camera' },
-        { ip: '192.168.1.253', name: 'Camera Garage PTZ', model: 'IPC-S42F-D', mac: '00:1A:2B:58:12:04', online: true, has_saved_password: true, notes: 'Cruiser S42F PTZ Outdoor' },
-        { ip: '192.168.1.231', name: 'Camera Studio', model: 'IPC-C22C', mac: '00:1A:2B:A5:E2:05', online: true, has_saved_password: false, notes: 'Cue 2 Indoor' }
-      ];
-      currentIp = '192.168.1.26';
-      renderCameraList();
-      document.getElementById('headerTitle').textContent = 'Camera Server Lab (192.168.1.26)';
-      document.getElementById('headerSub').textContent = 'IPC-A26HS · MAC: 00:1A:2B:74:91:01 · Server Room (Port 37777 · Keychain Ready)';
-      populateCameraData({
-        ok: true,
-        ip: '192.168.1.26',
-        summary: {
-          device_type: 'IPC-A26HS',
-          serial_no: '9J048DHPAZ88210',
-          firmware: '2.680.0000000.9.R',
-          build_date: '2024-11-15',
-          osd: {
-            channel_name: 'Server Room',
-            logo_enabled: false,
-            has_common_osd: true,
-            common_osd_enabled: false,
-            time_enabled: true,
-            show_week: false,
-            font_size: 24,
-            custom_text: 'Studio Rack A',
-            custom_enabled: false,
-            time_format: 'yyyy-MM-dd HH:mm:ss'
-          },
-          image: {
-            brightness: 58,
-            contrast: 54,
-            saturation: 52,
-            sharpness: 60,
-            gamma: 50,
-            exposure_compensation: 50,
-            wdr: 50,
-            style: 'Standard',
-            day_night_color: 1,
-            anti_flicker: 1,
-            mirror: false,
-            flip: false
-          },
-          encode: {
-            main_codec: 'H.264',
-            main_width: 1920,
-            main_height: 1080,
-            main_fps: 25,
-            main_bitrate: 2048,
-            main_bitrate_ctrl: 'CBR',
-            main_audio: true,
-            sub_codec: 'H.264',
-            sub_width: 640,
-            sub_height: 480,
-            sub_fps: 15,
-            sub_bitrate: 512,
-            sub_audio: true
-          }
-        },
-        raw: {
-          DeviceType: { type: 'IPC-A26HS' },
-          SerialNo: { sn: '9J048DHPAZ88210' },
-          ChannelTitle: [{ Name: 'Server Room' }],
-          VideoWidget: [{
-            ChannelTitle: { EncodeBlend: false, PreviewBlend: false, Rect: [5319, 7511, 7929, 7928] },
-            CommonOsdEnable: false,
-            TimeTitle: { EncodeBlend: true, PreviewBlend: true, ShowWeek: false, Rect: [5319, 352, 7929, 769] },
-            FontSize: 24
-          }],
-          VideoColor: [{ Brightness: 58, Contrast: 54, Saturation: 52, Gamma: 50, Style: 'Standard' }]
-        }
-      });
-      renderDemoCanvas();
-      const tabParam = new URLSearchParams(window.location.search).get('tab');
-      if (tabParam) {
-        const idxMap = { osd: 0, image: 1, encode: 2, system: 3 };
-        const btns = document.querySelectorAll('.tab-btn');
-        if (idxMap[tabParam] !== undefined && btns[idxMap[tabParam]]) {
-          switchTab(tabParam, btns[idxMap[tabParam]]);
-        }
-      }
-    }
-
-    if (new URLSearchParams(window.location.search).get('demo') === '1') {
-      initDemoMode();
-    } else {
-      loadCameras(false);
-    }
+    hydrateStaticIcons();
+    loadCameras(false);
   </script>
 </body>
 </html>
