@@ -1,0 +1,8 @@
+dist/
+scripts/bin/
+scripts/Frameworks
+__pycache__/
+*.pyc
+.DS_Store
+.env
+assets/cameras.local.json

@@ -1,0 +1,15 @@
+{
+  "cameras": [
+    {
+      "ip": "192.168.1.108",
+      "name": "Example Imou Camera",
+      "model": "IPC-A26HS",
+      "mac": "",
+      "port": 37777,
+      "rtsp_port": 554,
+      "username": "admin",
+      "channel": 0,
+      "notes": "Example camera entry (use LAN scan or + button in UI to add your cameras)"
+    }
+  ]
+}
