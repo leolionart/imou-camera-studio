@@ -16,6 +16,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: macos-release
+  cancel-in-progress: false
+
 jobs:
   build-macos:
     name: Build macOS Universal App & DMG
