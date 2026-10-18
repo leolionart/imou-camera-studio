@@ -2,6 +2,12 @@
 
 **Imou Camera Studio** là ứng dụng macOS (Native Cocoa/WebKit Desktop App + Local Web Studio + CLI) thay thế cho phần mềm **Dahua SmartPSS** vốn đã ngừng hỗ trợ giao diện trên các phiên bản macOS mới (Apple Silicon / macOS Sequoia & Tahoe).
 
+
+| Before | After |
+| ------ | ----- |
+| <img width="697" height="353" alt="Before" src="https://github.com/user-attachments/assets/e94edd5a-27ee-404a-a0c4-13e35f476527" /> | <img width="777" height="367" alt="After" src="https://github.com/user-attachments/assets/79ab9943-ea8e-48c8-99ca-d6b69c2977f4" /> |
+
+
 Ứng dụng kết nối trực tiếp tới các dòng camera **Imou** và **Dahua** trong mạng nội bộ (LAN) qua giao thức gốc **TCP Port 37777 (`DVRIP` / `ROAE-128` `RPC2`)** và **RTSP (`554`)**, cho phép tuỳ chỉnh sâu các thông số phần cứng mà ứng dụng điện thoại không mở hoặc yêu cầu đám mây:
 - 🚫 **Tắt/Bật hoàn toàn Logo Imou & Tên kênh (`ChannelTitle` / `CommonOsdEnable`)** trên luồng video.
 - 🕒 **Tắt/Bật bộ đếm Ngày Tháng Năm & Giờ (`TimeTitle`)**, Thứ trong tuần (`ShowWeek`), đổi cỡ chữ OSD (`16`/`24`/`32`/`48`).
