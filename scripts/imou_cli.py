@@ -502,6 +502,7 @@ def inspect_camera(
         {"method": "configManager.getConfig", "params": {"channel": 0, "name": "VideoInBacklight", "onlyLocal": True}},
         {"method": "configManager.getConfig", "params": {"channel": 0, "name": "Encode", "onlyLocal": True}},
         {"method": "configManager.getConfig", "params": {"name": "Locales", "onlyLocal": True}},
+        {"method": "configManager.getConfig", "params": {"name": "General", "onlyLocal": True}},
     ]
     keys = [
         "DeviceType",
@@ -516,6 +517,7 @@ def inspect_camera(
         "VideoInBacklight",
         "Encode",
         "Locales",
+        "General",
     ]
     ok, responses, err = run_rpc_batch(ip, reqs, port=use_port, username=use_user, password=password)
     if not ok:
@@ -539,6 +541,7 @@ def inspect_camera(
 
     ch_obj = first_dict(raw_tables.get("ChannelTitle"))
     channel_name = ch_obj.get("Name", "")
+    clean_channel_name = channel_name.replace("ㅤ", "").strip()
 
     vw = first_dict(raw_tables.get("VideoWidget"))
     ch_widget = vw.get("ChannelTitle", {}) if isinstance(vw.get("ChannelTitle"), dict) else {}
@@ -551,6 +554,8 @@ def inspect_camera(
     sharp = first_dict(raw_tables.get("VideoInSharpness"))
     dn = first_dict(raw_tables.get("VideoInDayNight"))
     bl = first_dict(raw_tables.get("VideoInBacklight"))
+    gen_cfg = first_dict(raw_tables.get("General"))
+    machine_name = str(gen_cfg.get("MachineName", "")).strip()
 
     enc = raw_tables.get("Encode") or {}
     main_fmt = (enc.get("MainFormat") or [{}])[0] if isinstance(enc, dict) else {}
@@ -558,6 +563,18 @@ def inspect_camera(
 
     has_common_osd = "CommonOsdEnable" in vw
     common_osd_enabled = bool(vw.get("CommonOsdEnable", False))
+    ch_encode_blend = bool(ch_widget.get("EncodeBlend", False))
+
+    # On Imou cameras with CommonOsdEnable, the built-in IMOU graphic watermark is only
+    # hidden when CommonOsdEnable=False AND ChannelTitle.EncodeBlend=True with an invisible
+    # space (" " or "ㅤ"). If EncodeBlend=False while ChannelTitle is blank/" ", the camera
+    # falls back to drawing the built-in IMOU graphic watermark!
+    if has_common_osd:
+        is_hidden_by_blank_override = (not common_osd_enabled) and ch_encode_blend and (clean_channel_name == "")
+        is_hidden_native = (not common_osd_enabled) and (not ch_encode_blend) and (channel_name == "")
+        logo_visually_enabled = not (is_hidden_by_blank_override or is_hidden_native)
+    else:
+        logo_visually_enabled = ch_encode_blend and (clean_channel_name != "")
 
     device_type = (raw_tables.get("DeviceType") or {}).get("type", "")
     serial_no = (raw_tables.get("SerialNo") or {}).get("sn", "")
@@ -569,9 +586,10 @@ def inspect_camera(
     current_name = reg_cam.get("name", "")
     auto_name = None
     if not current_name or current_name.startswith("Imou Camera ("):
-        clean_osd = channel_name.replace("ㅤ", "").strip()
-        if clean_osd and clean_osd.lower() not in ("ipc", "imou", "camera"):
-            auto_name = clean_osd
+        if machine_name and machine_name.lower() not in ("ipc", "imou", "camera", "localhost"):
+            auto_name = machine_name
+        elif clean_channel_name and clean_channel_name.lower() not in ("ipc", "imou", "camera"):
+            auto_name = clean_channel_name
         elif device_type:
             auto_name = f"{device_type} ({ip.split('.')[-1]})"
 
@@ -593,9 +611,12 @@ def inspect_camera(
         "serial_no": serial_no,
         "firmware": firmware,
         "build_date": build_date,
+        "machine_name": machine_name,
         "osd": {
-            "channel_name": channel_name,
-            "logo_enabled": bool(ch_widget.get("EncodeBlend", False)),
+            "channel_name": clean_channel_name,
+            "raw_channel_name": channel_name,
+            "logo_enabled": logo_visually_enabled,
+            "raw_encode_blend": ch_encode_blend,
             "logo_preview_enabled": bool(ch_widget.get("PreviewBlend", False)),
             "logo_rect": ch_widget.get("Rect", []),
             "has_common_osd": has_common_osd,
@@ -677,41 +698,71 @@ def update_osd(
     if vw_table is None:
         return {"ok": False, "error": "Không đọc được bảng cấu hình VideoWidget từ camera."}
 
+    vw = vw_table[0] if isinstance(vw_table, list) and vw_table else vw_table
+    if not isinstance(vw, dict):
+        return {"ok": False, "error": "Định dạng VideoWidget không hợp lệ."}
+
+    has_common_osd = "CommonOsdEnable" in vw
     set_reqs = []
-    if channel_name is not None:
-        # Many Dahua/Imou firmwares reject empty string "" in ChannelTitle with error 268959743;
-        # use a single space " " when the user clears the channel name.
-        safe_title = channel_name if channel_name != "" else " "
-        if isinstance(ch_table, list) and ch_table and isinstance(ch_table[0], dict):
-            ch_table[0]["Name"] = safe_title
-        elif isinstance(ch_table, dict):
-            ch_table["Name"] = safe_title
+
+    # Determine desired channel title string and blend flags:
+    # CRITICAL IMOU FIRMWARE BEHAVIOR:
+    # On Imou cameras with CommonOsdEnable (2.680 / 2.800 / 3.010 / 3.011), setting
+    # ChannelTitle.EncodeBlend = False causes the camera to fall back to rendering the
+    # built-in graphic "IMOU" watermark logo in the bottom-right corner!
+    # To completely hide the "IMOU" graphic watermark logo AND text when logo_enabled=False:
+    #   1) Set ChannelTitle.Name = " " (single ASCII space, accepted by all firmwares)
+    #   2) Set VideoWidget.ChannelTitle.EncodeBlend = True & PreviewBlend = True
+    #   3) Set VideoWidget.CommonOsdEnable = False
+    desired_title: Optional[str] = None
+    if logo_enabled is False:
+        desired_title = " "
+        if "ChannelTitle" not in vw or not isinstance(vw["ChannelTitle"], dict):
+            vw["ChannelTitle"] = {}
+        if has_common_osd:
+            vw["ChannelTitle"]["EncodeBlend"] = True
+            vw["ChannelTitle"]["PreviewBlend"] = True
+            vw["CommonOsdEnable"] = False
         else:
-            ch_table = {"Name": safe_title}
+            vw["ChannelTitle"]["EncodeBlend"] = False
+            vw["ChannelTitle"]["PreviewBlend"] = False
+        if "PictureTitle" in vw and isinstance(vw["PictureTitle"], dict) and vw["PictureTitle"]:
+            vw["PictureTitle"]["EncodeBlend"] = False
+            vw["PictureTitle"]["PreviewBlend"] = False
+    elif logo_enabled is True:
+        if "ChannelTitle" not in vw or not isinstance(vw["ChannelTitle"], dict):
+            vw["ChannelTitle"] = {}
+        vw["ChannelTitle"]["EncodeBlend"] = True
+        vw["ChannelTitle"]["PreviewBlend"] = True
+        clean_req_name = (channel_name or "").replace("ㅤ", "").strip()
+        if clean_req_name:
+            desired_title = clean_req_name
+            if has_common_osd and common_osd_enabled is None:
+                vw["CommonOsdEnable"] = False
+        else:
+            desired_title = "Imou" if not has_common_osd else " "
+            if has_common_osd and common_osd_enabled is None:
+                vw["CommonOsdEnable"] = True
+    elif channel_name is not None:
+        clean_req_name = channel_name.replace("ㅤ", "").strip()
+        desired_title = clean_req_name if clean_req_name else " "
+
+    if common_osd_enabled is not None and has_common_osd and logo_enabled is not False:
+        vw["CommonOsdEnable"] = bool(common_osd_enabled)
+
+    if desired_title is not None:
+        if isinstance(ch_table, list) and ch_table and isinstance(ch_table[0], dict):
+            ch_table[0]["Name"] = desired_title
+        elif isinstance(ch_table, dict):
+            ch_table["Name"] = desired_title
+        else:
+            ch_table = {"Name": desired_title}
         set_reqs.append(
             {
                 "method": "configManager.setConfig",
                 "params": {"channel": 0, "name": "ChannelTitle", "table": ch_table},
             }
         )
-
-    vw = vw_table[0] if isinstance(vw_table, list) and vw_table else vw_table
-    if not isinstance(vw, dict):
-        return {"ok": False, "error": "Định dạng VideoWidget không hợp lệ."}
-
-    if logo_enabled is not None:
-        if "ChannelTitle" not in vw or not isinstance(vw["ChannelTitle"], dict):
-            vw["ChannelTitle"] = {}
-        vw["ChannelTitle"]["EncodeBlend"] = bool(logo_enabled)
-        vw["ChannelTitle"]["PreviewBlend"] = bool(logo_enabled)
-        if "PictureTitle" in vw and isinstance(vw["PictureTitle"], dict) and vw["PictureTitle"]:
-            vw["PictureTitle"]["EncodeBlend"] = bool(logo_enabled)
-            vw["PictureTitle"]["PreviewBlend"] = bool(logo_enabled)
-        if "CommonOsdEnable" in vw and common_osd_enabled is None:
-            vw["CommonOsdEnable"] = bool(logo_enabled)
-
-    if common_osd_enabled is not None and "CommonOsdEnable" in vw:
-        vw["CommonOsdEnable"] = bool(common_osd_enabled)
 
     if logo_rect and len(logo_rect) == 4:
         vw.setdefault("ChannelTitle", {})["Rect"] = [int(x) for x in logo_rect]
@@ -840,19 +891,27 @@ def update_image(
             }
         )
 
-    if vio_table and isinstance(vio_table, dict) and any(
+    vio_dict = vio_table[0] if isinstance(vio_table, list) and vio_table else vio_table
+    if vio_dict and isinstance(vio_dict, dict) and any(
         x is not None for x in (mirror, flip, rotate90, day_night_color, infrared, wdr, anti_flicker, exposure_compensation)
     ):
-        targets = [vio_table]
+        cur_mirror = bool(vio_dict.get("Mirror", False))
+        cur_flip = bool(vio_dict.get("Flip", False))
+        cur_rot = int(vio_dict.get("Rotate90", 0))
+        mirror_changed = mirror is not None and bool(mirror) != cur_mirror
+        flip_changed = flip is not None and bool(flip) != cur_flip
+        rot_changed = rotate90 is not None and int(rotate90) != cur_rot
+
+        targets = [vio_dict]
         for sub_key in ("NormalOptions", "NightOptions"):
-            if isinstance(vio_table.get(sub_key), dict):
-                targets.append(vio_table[sub_key])
+            if isinstance(vio_dict.get(sub_key), dict):
+                targets.append(vio_dict[sub_key])
         for t in targets:
-            if mirror is not None:
+            if mirror_changed:
                 t["Mirror"] = bool(mirror)
-            if flip is not None:
+            if flip_changed:
                 t["Flip"] = bool(flip)
-            if rotate90 is not None:
+            if rot_changed:
                 t["Rotate90"] = int(rotate90)
             if day_night_color is not None:
                 t["DayNightColor"] = int(day_night_color)

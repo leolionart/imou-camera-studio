@@ -1555,7 +1555,8 @@
       // System Info & Raw JSON
       document.getElementById('sysInfoBox').innerHTML = `
         <div><b>Tên quản lý trong Studio:</b> ${escapeHtml(cam.name || currentIp)} <span style="color:var(--muted); font-size:12px;">(Lưu tại ~/.config/imou-camera-studio/cameras.json)</span></div>
-        <div><b>Tên kênh OSD trên mặt Video (ChannelTitle):</b> <code>${escapeHtml(rawChName.trim() || '(Đang để trống)')}</code></div>
+        <div><b>Tên thiết bị trong chip Camera (General.MachineName):</b> <code>${escapeHtml(s.machine_name || 'N/A')}</code></div>
+        <div><b>Tên kênh OSD trên mặt Video (ChannelTitle):</b> <code>${escapeHtml(rawChName.trim() || '(Đang ẩn / Để trống)')}</code></div>
         <div><b>Model phần cứng (đọc từ camera):</b> ${escapeHtml(s.device_type || cam.model || 'N/A')}</div>
         <div><b>Số Serial (SN):</b> <code>${escapeHtml(s.serial_no || 'N/A')}</code> · <b>Địa chỉ MAC:</b> <code>${escapeHtml(cam.mac || 'N/A')}</code></div>
         <div><b>Phiên bản Firmware:</b> ${escapeHtml(s.firmware || 'N/A')} (Build: ${escapeHtml(s.build_date || 'N/A')})</div>
@@ -1673,6 +1674,7 @@
         passInp.placeholder = 'Nhập mật khẩu / Safety Code 8 ký tự...';
       } else {
         const cam = cameras.find(c => c.ip === currentIp) || { ip: currentIp || '' };
+        const machineName = currentInspect?.summary?.machine_name || '';
         const osdName = currentInspect?.summary?.osd?.channel_name?.trim() || '';
         document.getElementById('cameraModalTitle').innerHTML = `${svgIcon('settings')} <span>Đổi tên & Cấu hình Camera (${escapeHtml(cam.ip)})</span>`;
         document.getElementById('modalOldIp').value = cam.ip || '';
@@ -1683,9 +1685,9 @@
         document.getElementById('modalCamRtsp').value = cam.rtsp_port || 554;
         document.getElementById('modalCamNotes').value = cam.notes || '';
         document.getElementById('modalSyncOsd').checked = false;
-        document.getElementById('modalOsdNameHint').textContent = osdName
-          ? `Tên OSD hiện tại lưu trong chip camera: "${osdName}" · Model: ${cam.model || 'Imou'}`
-          : `Model phần cứng: ${cam.model || 'Imou'} · SN: ${cam.serial_no || 'N/A'}`;
+        document.getElementById('modalOsdNameHint').textContent = machineName
+          ? `Tên lưu trong chip camera (MachineName): "${machineName}" · Model: ${cam.model || 'Imou'}`
+          : (osdName ? `Tên OSD hiện tại: "${osdName}" · Model: ${cam.model || 'Imou'}` : `Model phần cứng: ${cam.model || 'Imou'} · SN: ${cam.serial_no || 'N/A'}`);
         document.getElementById('btnDeleteCamera').style.display = 'inline-flex';
         passInp.placeholder = cam.has_saved_password
           ? 'Đã có mật khẩu trong Keychain (Nhập vào đây nếu muốn đổi/cập nhật mới)...'
